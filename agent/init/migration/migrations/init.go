@@ -1095,3 +1095,14 @@ var NormalizeOllamaAccountAPIType = &gormigrate.Migration{
 			Update("api_type", "openai-responses").Error
 	},
 }
+
+var AddNemoclawAgentType = &gormigrate.Migration{
+	ID: "20260320-add-nemoclaw-agent-type",
+	Migrate: func(tx *gorm.DB) error {
+		return tx.Exec(
+			"UPDATE agents SET agent_type = ? WHERE app_install_id IN (SELECT ai.id FROM app_installs ai JOIN apps a ON ai.app_id = a.id WHERE a.key = ?)",
+			constant.AppNemoclaw,
+			constant.AppNemoclaw,
+		).Error
+	},
+}

@@ -242,7 +242,7 @@ export namespace AI {
         webUIPort: number;
         bridgePort?: number;
         allowedOrigins?: string[];
-        agentType: 'openclaw' | 'copaw';
+        agentType: 'openclaw' | 'copaw' | 'nemoclaw';
         provider?: string;
         model?: string;
         apiType?: string;
@@ -269,7 +269,7 @@ export namespace AI {
     export interface AgentItem {
         id: number;
         name: string;
-        agentType: 'openclaw' | 'copaw';
+        agentType: 'openclaw' | 'copaw' | 'nemoclaw';
         provider: string;
         providerName: string;
         model: string;

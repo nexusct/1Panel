@@ -9,6 +9,7 @@ const (
 	AppOpenresty         = "openresty"
 	AppOpenclaw          = "openclaw"
 	AppCopaw             = "copaw"
+	AppNemoclaw          = "nemoclaw"
 	AppMysql             = "mysql"
 	AppMariaDB           = "mariadb"
 	AppPostgresql        = "postgresql"

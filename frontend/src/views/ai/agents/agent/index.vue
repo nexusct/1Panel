@@ -26,13 +26,15 @@
                             <div class="agent-type-cell">
                                 <img
                                     class="agent-type-icon"
-                                    :src="row.agentType === 'copaw' ? copawIcon : openclawIcon"
-                                    :alt="row.agentType === 'copaw' ? 'CoPaw' : 'OpenClaw'"
+                                    :src="row.agentType === 'copaw' ? copawIcon : row.agentType === 'nemoclaw' ? nemoclawIcon : openclawIcon"
+                                    :alt="row.agentType === 'copaw' ? 'CoPaw' : row.agentType === 'nemoclaw' ? 'NemoClaw' : 'OpenClaw'"
                                 />
                                 <span>
                                     {{
                                         row.agentType === 'copaw'
                                             ? $t('aiTools.agents.copawType')
+                                            : row.agentType === 'nemoclaw'
+                                            ? $t('aiTools.agents.nemoclawType')
                                             : $t('aiTools.agents.openclawType')
                                     }}
                                 </span>
@@ -61,7 +63,7 @@
                         min-width="120"
                     >
                         <template #default="{ row }">
-                            <template v-if="row.agentType !== 'copaw'">
+                            <template v-if="row.agentType !== 'copaw' && row.agentType !== 'nemoclaw'">
                                 <span>{{ getAgentProviderDisplayName(row.provider, row.providerName) }}</span>
                                 <div>
                                     <span>{{ row.model }}</span>
@@ -88,7 +90,7 @@
                     </el-table-column>
                     <el-table-column :label="$t('aiTools.agents.token')" min-width="80">
                         <template #default="{ row }">
-                            <el-space v-if="row.agentType !== 'copaw'">
+                            <el-space v-if="row.agentType !== 'copaw' && row.agentType !== 'nemoclaw'">
                                 <CopyButton :content="row.token" />
                                 <el-button link type="primary" @click="onResetToken(row)">
                                     {{ $t('commons.button.reset') }}
@@ -153,6 +155,7 @@ import { compareVersion } from '@/utils/version';
 import NoApp from '@/views/app-store/apps/no-app/index.vue';
 import openclawIcon from '@/assets/images/ai-agent-openclaw.svg';
 import copawIcon from '@/assets/images/ai-agent-copaw.svg';
+import nemoclawIcon from '@/assets/images/ai-agent-nemoclaw.svg';
 
 const items = ref<AI.AgentItem[]>([]);
 const loading = ref(false);
@@ -175,7 +178,7 @@ const buttons = [
     {
         label: i18n.global.t('menu.config'),
         click: (row: AI.AgentItem) => openConfig(row),
-        show: (row: AI.AgentItem) => row.agentType !== 'copaw',
+        show: (row: AI.AgentItem) => row.agentType !== 'copaw' && row.agentType !== 'nemoclaw',
         disabled: (row: AI.AgentItem) => row.status !== 'Running',
     },
     {
@@ -249,11 +252,11 @@ const search = async () => {
     }
 };
 
-const openCreate = (agentType?: 'openclaw' | 'copaw') => {
+const openCreate = (agentType?: 'openclaw' | 'copaw' | 'nemoclaw') => {
     if (noApp.value) {
         return;
     }
-    const targetType = agentType === 'copaw' ? 'copaw' : 'openclaw';
+    const targetType = agentType === 'copaw' ? 'copaw' : agentType === 'nemoclaw' ? 'nemoclaw' : 'openclaw';
     if (addRef.value?.open) {
         addRef.value.open(targetType);
     }
@@ -264,7 +267,12 @@ const openCreateFromQuery = async () => {
     if (!shouldOpen) {
         return;
     }
-    const agentType = route.query.agentType === 'copaw' ? 'copaw' : 'openclaw';
+    const agentType =
+        route.query.agentType === 'copaw'
+            ? 'copaw'
+            : route.query.agentType === 'nemoclaw'
+            ? 'nemoclaw'
+            : 'openclaw';
     openCreate(agentType);
     const nextQuery = { ...route.query };
     delete nextQuery.open;
@@ -335,8 +343,8 @@ const jumpWebUI = (row: AI.AgentItem) => {
         dialogPortJumpRef.value.acceptParams({
             port: row.webUIPort,
             protocol: row.agentType === 'openclaw' && isOpenClawHttpsVersion(row.appVersion) ? 'https' : 'http',
-            path: row.agentType === 'copaw' ? undefined : '/',
-            hash: row.agentType === 'copaw' ? undefined : `token=${row.token}`,
+            path: row.agentType === 'copaw' || row.agentType === 'nemoclaw' ? undefined : '/',
+            hash: row.agentType === 'copaw' || row.agentType === 'nemoclaw' ? undefined : `token=${row.token}`,
         });
     }
 };
@@ -361,7 +369,7 @@ const onResetToken = async (row: AI.AgentItem) => {
 };
 
 const openConfig = (row: AI.AgentItem) => {
-    if (row.agentType === 'copaw') {
+    if (row.agentType === 'copaw' || row.agentType === 'nemoclaw') {
         return;
     }
     configRef.value?.open(row);

@@ -558,3 +558,46 @@ func (b *BaseApi) RecoverByUpload(c *gin.Context) {
 	}
 	helper.Success(c)
 }
+
+// @Tags Backup Account
+// @Summary List files in cloud storage account
+// @Accept json
+// @Param request body dto.CloudFileListReq true "request"
+// @Success 200 {array} dto.CloudFileInfo
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /backups/cloud/files [post]
+func (b *BaseApi) ListCloudFiles(c *gin.Context) {
+	var req dto.CloudFileListReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+
+	files, err := backupService.ListCloudFiles(req)
+	if err != nil {
+		helper.InternalServer(c, err)
+		return
+	}
+	helper.SuccessWithData(c, files)
+}
+
+// @Tags Backup Account
+// @Summary Sync a file from cloud storage to local path
+// @Accept json
+// @Param request body dto.CloudFileSyncReq true "request"
+// @Success 200
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /backups/cloud/sync [post]
+func (b *BaseApi) SyncCloudFileToLocal(c *gin.Context) {
+	var req dto.CloudFileSyncReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+
+	if err := backupService.SyncCloudFileToLocal(req); err != nil {
+		helper.InternalServer(c, err)
+		return
+	}
+	helper.Success(c)
+}

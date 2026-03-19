@@ -104,4 +104,18 @@ export namespace Backup {
         secret: string;
         taskID: string;
     }
+    export interface CloudFileInfo {
+        name: string;
+        size: number;
+        isDir: boolean;
+    }
+    export interface CloudFileListReq {
+        accountID: number;
+        path: string;
+    }
+    export interface CloudFileSyncReq {
+        accountID: number;
+        srcPath: string;
+        dstPath: string;
+    }
 }

@@ -135,3 +135,20 @@ type RecordFileSize struct {
 	Name string `json:"name"`
 	Size int64  `json:"size"`
 }
+
+type CloudFileInfo struct {
+	Name  string `json:"name"`
+	Size  int64  `json:"size"`
+	IsDir bool   `json:"isDir"`
+}
+
+type CloudFileListReq struct {
+	AccountID uint   `json:"accountID" validate:"required"`
+	Path      string `json:"path"`
+}
+
+type CloudFileSyncReq struct {
+	AccountID uint   `json:"accountID" validate:"required"`
+	SrcPath   string `json:"srcPath" validate:"required"`
+	DstPath   string `json:"dstPath" validate:"required"`
+}
