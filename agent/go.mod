@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.0
 	github.com/compose-spec/compose-go/v2 v2.9.0
 	github.com/creack/pty v1.1.24
+	github.com/docker/cli v28.5.1+incompatible
 	github.com/docker/compose/v2 v2.40.2
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/docker/go-connections v0.6.0
@@ -113,7 +114,6 @@ require (
 	github.com/denisenkom/go-mssqldb v0.0.0-20191128021309-1d7a30a10f73 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/buildx v0.29.1 // indirect
-	github.com/docker/cli v28.5.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect

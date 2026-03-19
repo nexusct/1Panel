@@ -115,6 +115,7 @@
         <Operate ref="dialogRef" @search="search" />
         <DetailShow ref="detailRef" />
         <OpDialog ref="opRef" @search="search" />
+        <CloudFileBrowser ref="cloudBrowserRef" />
     </div>
 </template>
 <script setup lang="ts">
@@ -122,6 +123,7 @@ import { dateFormat } from '@/utils/util';
 import { onMounted, ref } from 'vue';
 import { searchBackup, deleteBackup, refreshToken } from '@/api/modules/backup';
 import Operate from '@/views/setting/backup-account/operate/index.vue';
+import CloudFileBrowser from '@/views/setting/backup-account/cloud-browser/index.vue';
 import DetailShow from '@/components/detail-show/index.vue';
 import { Backup } from '@/api/interface/backup';
 import i18n from '@/lang';
@@ -143,6 +145,7 @@ const paginationConfig = reactive({
 const opRef = ref();
 const dialogRef = ref();
 const detailRef = ref();
+const cloudBrowserRef = ref();
 
 const search = async () => {
     let params = {
@@ -291,6 +294,15 @@ const refreshItemToken = async (row: any) => {
 };
 
 const buttons = [
+    {
+        label: i18n.global.t('setting.cloudFiles'),
+        disabled: (row: Backup.BackupInfo) => {
+            return row.type === 'LOCAL';
+        },
+        click: (row: Backup.BackupInfo) => {
+            cloudBrowserRef.value?.openBrowser(row.id);
+        },
+    },
     {
         label: i18n.global.t('commons.button.edit'),
         click: (row: Backup.BackupInfo) => {

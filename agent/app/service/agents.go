@@ -111,6 +111,8 @@ func (a AgentService) Create(req dto.AgentCreateReq) (*dto.AgentItem, error) {
 	appKey := constant.AppOpenclaw
 	if agentType == constant.AppCopaw {
 		appKey = constant.AppCopaw
+	} else if agentType == constant.AppNemoclaw {
+		appKey = constant.AppNemoclaw
 	}
 	app, err := appRepo.GetFirst(appRepo.WithKey(appKey))
 	if err != nil || app.ID == 0 {
@@ -347,7 +349,7 @@ func (a AgentService) ResetToken(req dto.AgentTokenResetReq) error {
 	if err != nil {
 		return err
 	}
-	if normalizeAgentType(agent.AgentType) == constant.AppCopaw {
+	if normalizeAgentType(agent.AgentType) == constant.AppCopaw || normalizeAgentType(agent.AgentType) == constant.AppNemoclaw {
 		return fmt.Errorf("copaw does not support token")
 	}
 	configPath := strings.TrimSpace(agent.ConfigPath)
@@ -390,7 +392,7 @@ func (a AgentService) UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error
 	if err != nil {
 		return err
 	}
-	if normalizeAgentType(agent.AgentType) == constant.AppCopaw {
+	if normalizeAgentType(agent.AgentType) == constant.AppCopaw || normalizeAgentType(agent.AgentType) == constant.AppNemoclaw {
 		return fmt.Errorf("copaw does not support model config")
 	}
 	account, err := agentAccountRepo.GetFirst(repo.WithByID(req.AccountID))
@@ -867,7 +869,7 @@ func (a AgentService) GetSecurityConfig(req dto.AgentSecurityConfigReq) (*dto.Ag
 	if err != nil {
 		return nil, err
 	}
-	if normalizeAgentType(agent.AgentType) == constant.AppCopaw {
+	if normalizeAgentType(agent.AgentType) == constant.AppCopaw || normalizeAgentType(agent.AgentType) == constant.AppNemoclaw {
 		return nil, fmt.Errorf("copaw does not support security config")
 	}
 	conf, err := readOpenclawConfig(agent.ConfigPath)
@@ -883,7 +885,7 @@ func (a AgentService) UpdateSecurityConfig(req dto.AgentSecurityConfigUpdateReq)
 	if err != nil {
 		return err
 	}
-	if normalizeAgentType(agent.AgentType) == constant.AppCopaw {
+	if normalizeAgentType(agent.AgentType) == constant.AppCopaw || normalizeAgentType(agent.AgentType) == constant.AppNemoclaw {
 		return fmt.Errorf("copaw does not support security config")
 	}
 	allowedOrigins, err := normalizeAllowedOrigins(req.AllowedOrigins)
@@ -1567,6 +1569,8 @@ func buildAgentItem(agent *model.Agent, appInstall *model.AppInstall, envMap map
 	agentType := normalizeAgentType(agent.AgentType)
 	if appInstall != nil && appInstall.ID > 0 && appInstall.App.Key == constant.AppCopaw {
 		agentType = constant.AppCopaw
+	} else if appInstall != nil && appInstall.ID > 0 && appInstall.App.Key == constant.AppNemoclaw {
+		agentType = constant.AppNemoclaw
 	}
 	item := dto.AgentItem{
 		ID:            agent.ID,
@@ -2375,7 +2379,7 @@ func providerModelPrefix(provider string) string {
 
 func isSupportedAgentType(agentType string) bool {
 	switch normalizeAgentType(agentType) {
-	case constant.AppOpenclaw, constant.AppCopaw:
+	case constant.AppOpenclaw, constant.AppCopaw, constant.AppNemoclaw:
 		return true
 	default:
 		return false

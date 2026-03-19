@@ -131,3 +131,13 @@ export const deleteBackup = (params: { id: number; name: string; isPublic: boole
     }
     return http.post('/core/backups/del', { name: params.name });
 };
+
+export const listCloudFiles = (params: Backup.CloudFileListReq, node?: string) => {
+    const query = node ? `?operateNode=${node}` : '';
+    return http.post<Array<Backup.CloudFileInfo>>(`/backups/cloud/files${query}`, params);
+};
+
+export const syncCloudFileToLocal = (params: Backup.CloudFileSyncReq, node?: string) => {
+    const query = node ? `?operateNode=${node}` : '';
+    return http.post(`/backups/cloud/sync${query}`, params);
+};

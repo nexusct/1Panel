@@ -9,6 +9,7 @@
                     <el-select v-model="form.agentType" @change="handleAgentTypeChange">
                         <el-option :label="$t('aiTools.agents.openclawType')" value="openclaw" />
                         <el-option :label="$t('aiTools.agents.copawType')" value="copaw" />
+                        <el-option :label="$t('aiTools.agents.nemoclawType')" value="nemoclaw" />
                     </el-select>
                 </el-form-item>
                 <el-form-item :label="$t('aiTools.agents.appVersion')" prop="appVersion">
@@ -144,7 +145,7 @@ const { isIntl } = useGlobalStore();
 
 const form = reactive({
     name: '',
-    agentType: 'openclaw' as 'openclaw' | 'copaw',
+    agentType: 'openclaw' as 'openclaw' | 'copaw' | 'nemoclaw',
     appVersion: '',
     webUIPort: 18789,
     allowedOrigins: '',
@@ -223,7 +224,7 @@ const loadSystemIP = async () => {
     }
 };
 
-const loadVersions = async (appKey: 'openclaw' | 'copaw') => {
+const loadVersions = async (appKey: 'openclaw' | 'copaw' | 'nemoclaw') => {
     const res = await getAppByKey(appKey);
     appInfo.value = res.data;
     versions.value = res.data.versions || [];
@@ -320,8 +321,14 @@ const handleProviderChange = () => {
 };
 
 const handleAgentTypeChange = async () => {
-    if (form.name === '' || form.name === 'OpenClaw' || form.name === 'CoPaw') {
-        form.name = form.agentType === 'copaw' ? 'CoPaw' : 'OpenClaw';
+    if (form.name === '' || form.name === 'OpenClaw' || form.name === 'CoPaw' || form.name === 'NemoClaw') {
+        if (form.agentType === 'copaw') {
+            form.name = 'CoPaw';
+        } else if (form.agentType === 'nemoclaw') {
+            form.name = 'NemoClaw';
+        } else {
+            form.name = 'OpenClaw';
+        }
     }
     form.appVersion = '';
     form.model = '';
@@ -342,7 +349,11 @@ const handleAgentTypeChange = async () => {
     form.allowedOrigins = '';
     lastAutoAllowedOrigins.value = '';
     allowedOriginsAutoFilled.value = true;
-    await loadVersions('copaw');
+    if (form.agentType === 'nemoclaw') {
+        await loadVersions('nemoclaw');
+    } else {
+        await loadVersions('copaw');
+    }
 };
 
 const handleModelChange = () => {
@@ -454,18 +465,24 @@ const handleClose = () => {
     allowedOriginsAutoFilled.value = true;
 };
 
-const openDrawer = async (agentType?: 'openclaw' | 'copaw') => {
-    const targetType = agentType === 'copaw' ? 'copaw' : 'openclaw';
-    form.name = targetType === 'copaw' ? 'CoPaw' : 'OpenClaw';
+const openDrawer = async (agentType?: 'openclaw' | 'copaw' | 'nemoclaw') => {
+    const targetType = agentType === 'copaw' ? 'copaw' : agentType === 'nemoclaw' ? 'nemoclaw' : 'openclaw';
+    if (targetType === 'copaw') {
+        form.name = 'CoPaw';
+    } else if (targetType === 'nemoclaw') {
+        form.name = 'NemoClaw';
+    } else {
+        form.name = 'OpenClaw';
+    }
     open.value = true;
     manualModel.value = false;
     form.agentType = targetType;
     form.token = getRandomStr(32).toLowerCase();
-    if (form.agentType === 'copaw') {
+    if (form.agentType === 'copaw' || form.agentType === 'nemoclaw') {
         form.allowedOrigins = '';
         lastAutoAllowedOrigins.value = '';
         allowedOriginsAutoFilled.value = true;
-        await loadVersions('copaw');
+        await loadVersions(form.agentType);
         providerOptions.value = [];
         providerModels.value = {};
         accountOptions.value = [];

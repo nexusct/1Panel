@@ -62,6 +62,9 @@ type IBackupService interface {
 	ContainerRecover(req dto.CommonRecover) error
 	ComposeBackup(req dto.CommonBackup) error
 	ComposeRecover(req dto.CommonRecover) error
+
+	ListCloudFiles(req dto.CloudFileListReq) ([]dto.CloudFileInfo, error)
+	SyncCloudFileToLocal(req dto.CloudFileSyncReq) error
 }
 
 func NewIBackupService() IBackupService {
@@ -633,5 +636,33 @@ func changeLocalBackup(oldPath, newPath string) error {
 	_ = fileOp.RmRf(path.Join(oldPath, "website"))
 	_ = fileOp.RmRf(path.Join(oldPath, "log"))
 	_ = fileOp.RmRf(path.Join(oldPath, "master"))
+	return nil
+}
+
+func (u *BackupService) ListCloudFiles(req dto.CloudFileListReq) ([]dto.CloudFileInfo, error) {
+	_, backClient, err := NewBackupClientWithID(req.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	names, err := backClient.ListObjects(req.Path)
+	if err != nil {
+		return nil, err
+	}
+	var result []dto.CloudFileInfo
+	for _, name := range names {
+		info := dto.CloudFileInfo{Name: name}
+		result = append(result, info)
+	}
+	return result, nil
+}
+
+func (u *BackupService) SyncCloudFileToLocal(req dto.CloudFileSyncReq) error {
+	_, backClient, err := NewBackupClientWithID(req.AccountID)
+	if err != nil {
+		return err
+	}
+	if _, err := backClient.Download(req.SrcPath, req.DstPath); err != nil {
+		return err
+	}
 	return nil
 }
