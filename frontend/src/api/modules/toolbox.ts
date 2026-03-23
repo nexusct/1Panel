@@ -147,3 +147,26 @@ export const deleteClam = (params: { ids: number[]; removeInfected: boolean }) =
 export const handleClamScan = (id: number) => {
     return http.post(`/toolbox/clam/handle`, { id: id });
 };
+
+// installer
+export interface InstallerToolReq {
+    tool: string;
+}
+
+export interface InstallerToolRes {
+    output: string;
+    error?: string;
+}
+
+export interface ToolInstallStatus {
+    installed: boolean;
+    version?: string;
+}
+
+export const installTool = (req: InstallerToolReq) => {
+    return http.post<InstallerToolRes>(`/toolbox/installer/install`, req, TimeoutEnum.T_10M);
+};
+
+export const getToolInstallStatus = (tool: string) => {
+    return http.get<ToolInstallStatus>(`/toolbox/installer/status/${tool}`);
+};

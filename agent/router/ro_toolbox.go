@@ -54,5 +54,8 @@ func (s *ToolboxRouter) InitRouter(Router *gin.RouterGroup) {
 		toolboxRouter.POST("/clam/status/update", baseApi.UpdateClamStatus)
 		toolboxRouter.POST("/clam/del", baseApi.DeleteClam)
 		toolboxRouter.POST("/clam/handle", baseApi.HandleClamScan)
+
+		toolboxRouter.POST("/installer/install", baseApi.InstallTool)
+		toolboxRouter.GET("/installer/status/:tool", baseApi.GetToolInstallStatus)
 	}
 }

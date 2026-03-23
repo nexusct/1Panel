@@ -101,6 +101,18 @@ const toolboxRouter = {
                         requiresAuth: false,
                     },
                 },
+                {
+                    path: 'installers',
+                    name: 'ToolboxInstallers',
+                    component: () => import('@/views/toolbox/installers/index.vue'),
+                    hidden: true,
+                    meta: {
+                        parent: 'menu.toolbox',
+                        title: 'menu.toolboxInstallers',
+                        activeMenu: '/toolbox',
+                        requiresAuth: false,
+                    },
+                },
             ],
         },
     ],
