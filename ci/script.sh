@@ -38,3 +38,8 @@ if [ ! -f "GeoIP.mmdb" ]; then
 fi
 
 chmod 755 1pctl install.sh
+
+# Make the AI tools installer available
+if [ -f "$(dirname "$0")/install_ai_tools.sh" ]; then
+    chmod +x "$(dirname "$0")/install_ai_tools.sh"
+fi
