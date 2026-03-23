@@ -389,7 +389,10 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 			}
 			appInstall = install
 			website.AppInstallID = install.ID
-			website.Proxy = fmt.Sprintf("127.0.0.1:%d", appInstall.HttpPort)
+			website.Proxy, err = getAppInstallProxyPass(appInstall)
+			if err != nil {
+				return err
+			}
 		} else {
 			var install model.AppInstall
 			install, err = appInstallRepo.GetFirst(repo.WithByID(create.AppInstallID))
@@ -399,7 +402,10 @@ func (w WebsiteService) CreateWebsite(create request.WebsiteCreate) (err error) 
 			configApp := func(t *task.Task) error {
 				appInstall = &install
 				website.AppInstallID = appInstall.ID
-				website.Proxy = fmt.Sprintf("127.0.0.1:%d", appInstall.HttpPort)
+				website.Proxy, err = getAppInstallProxyPass(appInstall)
+				if err != nil {
+					return err
+				}
 				return nil
 			}
 			createTask.AddSubTask(i18n.GetMsgByKey("ConfigApp"), configApp, nil)
@@ -1488,23 +1494,11 @@ func (w WebsiteService) UpdateAntiLeech(req request.NginxAntiLeechUpdate) (err e
 			newBlock.AppendDirectives(ifDir)
 		}
 		if website.Type == constant.Deployment {
-			newBlock.AppendDirectives(
-				&components.Directive{
-					Name:       "proxy_set_header",
-					Parameters: []string{"Host", "$host"},
-				},
-				&components.Directive{
-					Name:       "proxy_set_header",
-					Parameters: []string{"X-Real-IP", "$remote_addr"},
-				},
-				&components.Directive{
-					Name:       "proxy_set_header",
-					Parameters: []string{"X-Forwarded-For", "$proxy_add_x_forwarded_for"},
-				},
-				&components.Directive{
-					Name:       "proxy_pass",
-					Parameters: []string{fmt.Sprintf("http://%s", website.Proxy)},
-				})
+			proxyDirectives := getRootProxyDirectives(website.Proxy)
+			if len(proxyDirectives) == 0 {
+				return errors.New("failed to build deployment proxy directives")
+			}
+			newBlock.AppendDirectives(proxyDirectives...)
 		}
 		newDirective.Block = newBlock
 		index := -1
@@ -1750,7 +1744,7 @@ func (w WebsiteService) OperateRedirect(req request.NginxRedirectReq) (err error
 		return buserr.WithErr("ErrUpdateBuWebsite", err)
 	}
 
-	nginxInclude := fmt.Sprintf("/www/sites/%s/redirect/*.conf", website.Alias)
+	nginxInclude := getWebsiteRedirectInclude(website)
 	if err = updateNginxConfig(constant.NginxScopeServer, []dto.NginxParam{{Name: "include", Params: []string{nginxInclude}}}, &website); err != nil {
 		return
 	}
@@ -2328,6 +2322,7 @@ func (w WebsiteService) ExecComposer(req request.ExecComposerReq) error {
 	} else {
 		command = req.ExtCommand
 	}
+	command = strings.TrimSpace(command)
 	resourceName := fmt.Sprintf("composer %s", command)
 	composerTask, err := task.NewTaskWithOps(resourceName, task.TaskExec, req.Command, req.TaskID, website.ID)
 	if err != nil {

@@ -129,6 +129,22 @@ export const pageAgentAccounts = (req: AI.AgentAccountSearch) => {
     return http.post<ResPage<AI.AgentAccountItem>>(`/ai/agents/accounts/search`, req);
 };
 
+export const getAgentAccountModels = (req: AI.AgentAccountModelReq) => {
+    return http.post<AI.AgentAccountModel[]>(`/ai/agents/accounts/models`, req);
+};
+
+export const createAgentAccountModel = (req: AI.AgentAccountModelCreateReq) => {
+    return http.post(`/ai/agents/accounts/models/create`, req);
+};
+
+export const updateAgentAccountModel = (req: AI.AgentAccountModelUpdateReq) => {
+    return http.post(`/ai/agents/accounts/models/update`, req);
+};
+
+export const deleteAgentAccountModel = (req: AI.AgentAccountModelDeleteReq) => {
+    return http.post(`/ai/agents/accounts/models/delete`, req);
+};
+
 export const verifyAgentAccount = (req: AI.AgentAccountVerifyReq) => {
     return http.post(`/ai/agents/accounts/verify`, req);
 };
@@ -167,6 +183,18 @@ export const getAgentWecomConfig = (req: AI.AgentWecomConfigReq) => {
 
 export const updateAgentWecomConfig = (req: AI.AgentWecomConfigUpdateReq) => {
     return http.post(`/ai/agents/channel/wecom/update`, req);
+};
+
+export const getAgentDingTalkConfig = (req: AI.AgentDingTalkConfigReq) => {
+    return http.post<AI.AgentDingTalkConfig>(`/ai/agents/channel/dingtalk/get`, req);
+};
+
+export const updateAgentDingTalkConfig = (req: AI.AgentDingTalkConfigUpdateReq) => {
+    return http.post(`/ai/agents/channel/dingtalk/update`, req);
+};
+
+export const loginAgentWeixinChannel = (req: AI.AgentWeixinLoginReq) => {
+    return http.post(`/ai/agents/channel/weixin/login`, req);
 };
 
 export const getAgentQQBotConfig = (req: AI.AgentQQBotConfigReq) => {

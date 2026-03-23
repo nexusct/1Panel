@@ -39,7 +39,10 @@ ErrAgentAccountUnavailable: 'Связь с аккаунтом недоступн
 ErrAgentProviderNotSupported: 'Провайдер агента не поддерживается'
 ErrAgentAccountRequired: 'Выберите аккаунт агента'
 ErrAgentAccountNotVerified: 'Аккаунт не подтверждён'
-ErrAgentProviderMismatch: 'Провайдер не совпадает'
+ErrAgentAccountModelsRequired: 'Настройте хотя бы одну модель'
+ErrAgentAccountSingleInitialModel: 'При создании аккаунта можно указать только одну начальную модель'
+ErrAgentModelNotInAccount: 'Модель не настроена в выбранном аккаунте'
+ErrAgentModelInUse: 'Эта модель всё ещё используется агентом: {{ .name }}'
 ErrAgentBaseURLRequired: 'Нужен базовый URL'
 ErrAgentApiKeyRequired: 'Нужен API-ключ'
 ErrAgentComposeRequired: 'Нужен compose'
@@ -504,3 +507,6 @@ PartitionDiskErr: 'Не удалось разделить, {{ .err }}'
 FormatDiskErr: 'Не удалось отформатировать диск, {{ .err }}'
 MountDiskErr: 'Не удалось подключить диск, {{ .err }}'
 XfsNotFound: 'Файловая система xfs не обнаружена, сначала установите xfsprogs'
+
+# terminal
+TerminalAIBlockedRiskyCommand: 'Опасная команда заблокирована: {{ .command }}'

@@ -243,14 +243,8 @@ export namespace AI {
         bridgePort?: number;
         allowedOrigins?: string[];
         agentType: 'openclaw' | 'copaw';
-        provider?: string;
         model?: string;
-        apiType?: string;
-        maxTokens?: number;
-        contextWindow?: number;
         accountId?: number;
-        apiKey?: string;
-        baseURL?: string;
         token?: string;
         taskID: string;
         advanced: boolean;
@@ -309,9 +303,42 @@ export namespace AI {
         model: string;
     }
 
+    export interface AgentAccountModel {
+        recordId: number;
+        id: string;
+        name: string;
+        contextWindow: number;
+        maxTokens: number;
+        reasoning: boolean;
+        input: string[];
+    }
+
+    export interface AgentAccountModelReq {
+        accountId: number;
+    }
+
+    export interface AgentAccountModelCreateReq {
+        accountId: number;
+        model: AgentAccountModel;
+    }
+
+    export interface AgentAccountModelUpdateReq {
+        accountId: number;
+        model: AgentAccountModel;
+    }
+
+    export interface AgentAccountModelDeleteReq {
+        accountId: number;
+        recordId: number;
+    }
+
     export interface ProviderModelInfo {
         id: string;
         name: string;
+        contextWindow: number;
+        maxTokens: number;
+        reasoning: boolean;
+        input: string[];
     }
 
     export interface ProviderInfo {
@@ -327,10 +354,8 @@ export namespace AI {
         apiKey: string;
         rememberApiKey: boolean;
         baseURL: string;
-        model: string;
         apiType: string;
-        maxTokens: number;
-        contextWindow: number;
+        models?: AgentAccountModel[];
         remark: string;
     }
 
@@ -340,10 +365,7 @@ export namespace AI {
         apiKey: string;
         rememberApiKey: boolean;
         baseURL: string;
-        model: string;
         apiType: string;
-        maxTokens: number;
-        contextWindow: number;
         remark: string;
         syncAgents: boolean;
     }
@@ -363,10 +385,8 @@ export namespace AI {
         apiKey: string;
         rememberApiKey: boolean;
         baseUrl: string;
-        model: string;
+        models: AgentAccountModel[];
         apiType: string;
-        maxTokens: number;
-        contextWindow: number;
         verified: boolean;
         remark: string;
         createdAt: string;
@@ -429,7 +449,7 @@ export namespace AI {
 
     export interface AgentChannelPairingApproveReq {
         agentId: number;
-        type: 'feishu' | 'telegram' | 'discord' | 'wecom';
+        type: 'feishu' | 'telegram' | 'discord' | 'wecom' | 'dingtalk-connector';
         pairingCode: string;
     }
 
@@ -453,6 +473,37 @@ export namespace AI {
         secret: string;
     }
 
+    export interface AgentDingTalkConfigReq {
+        agentId: number;
+    }
+
+    export interface AgentDingTalkConfig {
+        enabled: boolean;
+        clientId: string;
+        clientSecret: string;
+        dmPolicy: 'pairing' | 'allowlist' | 'open' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
+        installed: boolean;
+    }
+
+    export interface AgentDingTalkConfigUpdateReq {
+        agentId: number;
+        enabled: boolean;
+        clientId: string;
+        clientSecret: string;
+        dmPolicy: 'pairing' | 'allowlist' | 'open' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
+    }
+
+    export interface AgentWeixinLoginReq {
+        agentId: number;
+        taskID: string;
+    }
+
     export interface AgentQQBotConfigReq {
         agentId: number;
     }
@@ -473,13 +524,13 @@ export namespace AI {
 
     export interface AgentPluginInstallReq {
         agentId: number;
-        type: 'qqbot' | 'wecom';
+        type: 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
         taskID: string;
     }
 
     export interface AgentPluginCheckReq {
         agentId: number;
-        type: 'qqbot' | 'wecom';
+        type: 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
     }
 
     export interface AgentPluginStatus {

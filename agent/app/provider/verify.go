@@ -18,6 +18,10 @@ type VerifyRequest struct {
 	Body    []byte
 }
 
+const (
+	defaultVerifyTimeout = 30 * time.Second
+)
+
 func SkipVerification(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
 	case "custom", "vllm", "ollama", "kimi-coding":
@@ -42,7 +46,7 @@ func VerifyAccount(provider, baseURL, apiKey string) error {
 	for key, value := range req.Headers {
 		httpReq.Header.Set(key, value)
 	}
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(httpReq)
+	resp, err := (&http.Client{Timeout: verifyTimeout()}).Do(httpReq)
 	if err != nil {
 		return buserr.WithErr("ErrAgentAccountUnavailable", err)
 	}
@@ -51,6 +55,10 @@ func VerifyAccount(provider, baseURL, apiKey string) error {
 		return buserr.WithErr("ErrAgentAccountUnavailable", fmt.Errorf("verify failed: %s", resp.Status))
 	}
 	return nil
+}
+
+func verifyTimeout() time.Duration {
+	return defaultVerifyTimeout
 }
 
 func BuildVerifyRequest(provider, baseURL, apiKey string) VerifyRequest {
@@ -115,17 +123,53 @@ func BuildVerifyRequest(provider, baseURL, apiKey string) VerifyRequest {
 		})
 	case "minimax":
 		request.Method = http.MethodPost
-		if !strings.Contains(base, "/v1") {
-			base = base + "/v1"
-		}
-		request.URL = base + "/chat/completions"
-		headers["Authorization"] = fmt.Sprintf("Bearer %s", apiKey)
+		headers["x-api-key"] = apiKey
+		headers["anthropic-version"] = "2023-06-01"
 		headers["Content-Type"] = "application/json"
+		if strings.Contains(base, "/v1") {
+			request.URL = base + "/messages"
+		} else {
+			request.URL = base + "/v1/messages"
+		}
 		request.Body = mustJSON(map[string]interface{}{
-			"model":      "MiniMax-M2.1",
-			"messages":   []map[string]string{{"role": "user", "content": "test"}},
+			"model":      "MiniMax-M2.5",
 			"max_tokens": 1,
+			"messages": []map[string]interface{}{{
+				"role": "user",
+				"content": []map[string]string{{
+					"type": "text",
+					"text": "test",
+				}},
+			}},
 		})
+	case "xiaomi":
+		request.Method = http.MethodPost
+		headers["x-api-key"] = apiKey
+		headers["anthropic-version"] = "2023-06-01"
+		headers["Content-Type"] = "application/json"
+		if strings.Contains(base, "/v1") {
+			request.URL = base + "/messages"
+		} else {
+			request.URL = base + "/v1/messages"
+		}
+		request.Body = mustJSON(map[string]interface{}{
+			"model":      "mimo-v2-flash",
+			"max_tokens": 1,
+			"messages": []map[string]interface{}{{
+				"role": "user",
+				"content": []map[string]string{{
+					"type": "text",
+					"text": "test",
+				}},
+			}},
+		})
+	case "openrouter":
+		headers["Authorization"] = fmt.Sprintf("Bearer %s", apiKey)
+		if strings.Contains(base, "/v1") {
+			request.URL = base + "/key"
+		} else {
+			request.URL = base + "/v1/key"
+		}
 	default:
 		headers["Authorization"] = fmt.Sprintf("Bearer %s", apiKey)
 		if strings.Contains(base, "/v1") {

@@ -87,6 +87,14 @@ type SystemProxy struct {
 	Password string `json:"password"`
 }
 
+type TerminalAIInfo struct {
+	AIStatus              string `json:"aiStatus"`
+	AIAccountID           string `json:"aiAccountId"`
+	AIPrefix              string `json:"aiPrefix" validate:"required,oneof=@ai #ai /ai"`
+	AIRiskCommands        string `json:"aiRiskCommands"`
+	AIRiskCommandsDefault string `json:"aiRiskCommandsDefault"`
+}
+
 type CommonDescription struct {
 	ID          string `json:"id" validate:"required"`
 	Type        string `json:"type" validate:"required"`

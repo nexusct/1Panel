@@ -8,15 +8,9 @@ type AgentCreateReq struct {
 	WebUIPort      int      `json:"webUIPort" validate:"required"`
 	BridgePort     int      `json:"bridgePort"`
 	AllowedOrigins []string `json:"allowedOrigins"`
-	AgentType      string   `json:"agentType"`
-	Provider       string   `json:"provider"`
+	AgentType      string   `json:"agentType" validate:"required,oneof=openclaw copaw"`
 	Model          string   `json:"model"`
-	APIType        string   `json:"apiType"`
-	MaxTokens      int      `json:"maxTokens"`
-	ContextWindow  int      `json:"contextWindow"`
 	AccountID      uint     `json:"accountId"`
-	APIKey         string   `json:"apiKey"`
-	BaseURL        string   `json:"baseURL"`
 	Token          string   `json:"token"`
 	TaskID         string   `json:"taskID"`
 	Advanced       bool     `json:"advanced"`
@@ -75,17 +69,44 @@ type AgentModelConfigUpdateReq struct {
 	Model     string `json:"model" validate:"required"`
 }
 
+type AgentAccountModel struct {
+	RecordID      uint     `json:"recordId"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	ContextWindow int      `json:"contextWindow"`
+	MaxTokens     int      `json:"maxTokens"`
+	Reasoning     bool     `json:"reasoning"`
+	Input         []string `json:"input"`
+}
+
+type AgentAccountModelReq struct {
+	AccountID uint `json:"accountId" validate:"required"`
+}
+
+type AgentAccountModelCreateReq struct {
+	AccountID uint              `json:"accountId" validate:"required"`
+	Model     AgentAccountModel `json:"model" validate:"required"`
+}
+
+type AgentAccountModelUpdateReq struct {
+	AccountID uint              `json:"accountId" validate:"required"`
+	Model     AgentAccountModel `json:"model" validate:"required"`
+}
+
+type AgentAccountModelDeleteReq struct {
+	AccountID uint `json:"accountId" validate:"required"`
+	RecordID  uint `json:"recordId" validate:"required"`
+}
+
 type AgentAccountCreateReq struct {
-	Provider       string `json:"provider" validate:"required"`
-	Name           string `json:"name" validate:"required"`
-	APIKey         string `json:"apiKey" validate:"required"`
-	RememberAPIKey bool   `json:"rememberApiKey"`
-	BaseURL        string `json:"baseURL"`
-	Model          string `json:"model"`
-	APIType        string `json:"apiType"`
-	MaxTokens      int    `json:"maxTokens"`
-	ContextWindow  int    `json:"contextWindow"`
-	Remark         string `json:"remark"`
+	Provider       string              `json:"provider" validate:"required"`
+	Name           string              `json:"name" validate:"required"`
+	APIKey         string              `json:"apiKey" validate:"required"`
+	RememberAPIKey bool                `json:"rememberApiKey"`
+	BaseURL        string              `json:"baseURL"`
+	Models         []AgentAccountModel `json:"models"`
+	APIType        string              `json:"apiType" validate:"required"`
+	Remark         string              `json:"remark"`
 }
 
 type AgentAccountUpdateReq struct {
@@ -94,10 +115,7 @@ type AgentAccountUpdateReq struct {
 	APIKey         string `json:"apiKey" validate:"required"`
 	RememberAPIKey bool   `json:"rememberApiKey"`
 	BaseURL        string `json:"baseURL"`
-	Model          string `json:"model"`
-	APIType        string `json:"apiType"`
-	MaxTokens      int    `json:"maxTokens"`
-	ContextWindow  int    `json:"contextWindow"`
+	APIType        string `json:"apiType" validate:"required"`
 	Remark         string `json:"remark"`
 	SyncAgents     bool   `json:"syncAgents"`
 }
@@ -119,25 +137,27 @@ type AgentAccountSearch struct {
 }
 
 type AgentAccountInfo struct {
-	ID             uint      `json:"id"`
-	Provider       string    `json:"provider"`
-	ProviderName   string    `json:"providerName"`
-	Name           string    `json:"name"`
-	APIKey         string    `json:"apiKey"`
-	RememberAPIKey bool      `json:"rememberApiKey"`
-	BaseURL        string    `json:"baseUrl"`
-	Model          string    `json:"model"`
-	APIType        string    `json:"apiType"`
-	MaxTokens      int       `json:"maxTokens"`
-	ContextWindow  int       `json:"contextWindow"`
-	Verified       bool      `json:"verified"`
-	Remark         string    `json:"remark"`
-	CreatedAt      time.Time `json:"createdAt"`
+	ID             uint                `json:"id"`
+	Provider       string              `json:"provider"`
+	ProviderName   string              `json:"providerName"`
+	Name           string              `json:"name"`
+	APIKey         string              `json:"apiKey"`
+	RememberAPIKey bool                `json:"rememberApiKey"`
+	BaseURL        string              `json:"baseUrl"`
+	Models         []AgentAccountModel `json:"models"`
+	APIType        string              `json:"apiType"`
+	Verified       bool                `json:"verified"`
+	Remark         string              `json:"remark"`
+	CreatedAt      time.Time           `json:"createdAt"`
 }
 
 type ProviderModelInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	ContextWindow int      `json:"contextWindow"`
+	MaxTokens     int      `json:"maxTokens"`
+	Reasoning     bool     `json:"reasoning"`
+	Input         []string `json:"input"`
 }
 
 type ProviderInfo struct {
@@ -195,7 +215,7 @@ type AgentTelegramConfig struct {
 
 type AgentChannelPairingApproveReq struct {
 	AgentID     uint   `json:"agentId" validate:"required"`
-	Type        string `json:"type" validate:"required,oneof=feishu telegram discord wecom"`
+	Type        string `json:"type" validate:"required,oneof=feishu telegram discord wecom dingtalk-connector"`
 	PairingCode string `json:"pairingCode" validate:"required"`
 }
 
@@ -219,6 +239,37 @@ type AgentWecomConfig struct {
 	Installed bool   `json:"installed"`
 }
 
+type AgentDingTalkConfigReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentDingTalkConfigUpdateReq struct {
+	AgentID        uint     `json:"agentId" validate:"required"`
+	Enabled        bool     `json:"enabled"`
+	ClientID       string   `json:"clientId" validate:"required"`
+	ClientSecret   string   `json:"clientSecret" validate:"required"`
+	DmPolicy       string   `json:"dmPolicy" validate:"required,oneof=pairing allowlist open disabled"`
+	AllowFrom      []string `json:"allowFrom"`
+	GroupPolicy    string   `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
+	GroupAllowFrom []string `json:"groupAllowFrom"`
+}
+
+type AgentDingTalkConfig struct {
+	Enabled        bool     `json:"enabled"`
+	ClientID       string   `json:"clientId"`
+	ClientSecret   string   `json:"clientSecret"`
+	DmPolicy       string   `json:"dmPolicy"`
+	AllowFrom      []string `json:"allowFrom"`
+	GroupPolicy    string   `json:"groupPolicy"`
+	GroupAllowFrom []string `json:"groupAllowFrom"`
+	Installed      bool     `json:"installed"`
+}
+
+type AgentWeixinLoginReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	TaskID  string `json:"taskID" validate:"required"`
+}
+
 type AgentQQBotConfigReq struct {
 	AgentID uint `json:"agentId" validate:"required"`
 }
@@ -239,13 +290,13 @@ type AgentQQBotConfig struct {
 
 type AgentPluginInstallReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
-	Type    string `json:"type" validate:"required,oneof=qqbot wecom"`
+	Type    string `json:"type" validate:"required,oneof=qqbot wecom dingtalk weixin"`
 	TaskID  string `json:"taskID" validate:"required"`
 }
 
 type AgentPluginCheckReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
-	Type    string `json:"type" validate:"required,oneof=qqbot wecom"`
+	Type    string `json:"type" validate:"required,oneof=qqbot wecom dingtalk weixin"`
 }
 
 type AgentPluginStatus struct {

@@ -70,15 +70,11 @@
                         </el-button>
                     </span>
                 </el-form-item>
-                <el-form-item>
-                    <el-checkbox v-model="manualModel">{{ $t('aiTools.agents.manualModel') }}</el-checkbox>
-                </el-form-item>
                 <el-form-item :label="$t('aiTools.model.model')" prop="model">
-                    <el-input v-if="manualModel" v-model="form.model" />
-
-                    <el-select v-else v-model="form.model" filterable @change="handleModelChange">
+                    <el-select v-model="form.model" filterable>
                         <el-option v-for="item in filteredModels" :key="item.id" :label="item.name" :value="item.id" />
                     </el-select>
+                    <span class="input-help">{{ $t('aiTools.agents.accountModelsHelper') }}</span>
                 </el-form-item>
                 <el-form-item :label="$t('aiTools.agents.baseUrl')" v-if="form.accountId" prop="baseURL">
                     <el-input v-model="form.baseURL" disabled />
@@ -134,7 +130,6 @@ const accountOptions = ref<AI.AgentAccountItem[]>([]);
 const providerOptions = ref<Array<{ label: string; value: string }>>([]);
 const providerModels = ref<Record<string, AI.ProviderModelInfo[]>>({});
 const providerAccountCount = ref<Record<string, number>>({});
-const manualModel = ref(false);
 const appInfo = ref<App.AppDTO>();
 const accountAddRef = ref();
 const systemIP = ref('');
@@ -151,10 +146,6 @@ const form = reactive({
     provider: 'deepseek',
     accountId: undefined as unknown as number,
     model: '',
-    apiType: 'openai-completions',
-    maxTokens: 8192,
-    contextWindow: 128000,
-    apiKey: '',
     baseURL: '',
     token: '',
     advanced: true,
@@ -170,8 +161,12 @@ const form = reactive({
     dockerCompose: '',
 });
 
+const setDefaultWebUIPort = () => {
+    form.webUIPort = form.agentType === 'copaw' ? 8088 : 18789;
+};
+
 const rules = reactive({
-    name: [Rules.requiredInput],
+    name: [Rules.appName],
     agentType: [Rules.requiredSelect],
     appVersion: [Rules.requiredSelect],
     webUIPort: [Rules.requiredInput],
@@ -199,7 +194,10 @@ const rules = reactive({
     specifyIP: [Rules.ipv4orV6],
 });
 
-const filteredModels = computed(() => providerModels.value[form.provider] || []);
+const filteredModels = computed(() => {
+    const selected = accountOptions.value.find((item) => item.id === form.accountId);
+    return selected?.models || [];
+});
 
 const syncAllowedOriginsWithDefault = (force = false) => {
     if (form.agentType !== 'openclaw') {
@@ -302,7 +300,6 @@ const loadAccounts = async () => {
         handleAccountChange();
     } else {
         form.accountId = undefined as unknown as number;
-        form.apiKey = '';
         form.baseURL = '';
     }
 };
@@ -312,24 +309,21 @@ const handleProviderChange = () => {
         return;
     }
     form.model = '';
-    form.apiKey = '';
     form.baseURL = '';
     form.accountId = undefined as unknown as number;
     loadAccounts();
-    setDefaultModel();
 };
 
 const handleAgentTypeChange = async () => {
     if (form.name === '' || form.name === 'OpenClaw' || form.name === 'CoPaw') {
         form.name = form.agentType === 'copaw' ? 'CoPaw' : 'OpenClaw';
     }
+    setDefaultWebUIPort();
     form.appVersion = '';
     form.model = '';
     form.provider = 'deepseek';
     form.accountId = undefined as unknown as number;
-    form.apiKey = '';
     form.baseURL = '';
-    form.apiType = 'openai-completions';
     if (form.agentType === 'openclaw') {
         await loadSystemIP();
         allowedOriginsAutoFilled.value = true;
@@ -345,12 +339,6 @@ const handleAgentTypeChange = async () => {
     await loadVersions('copaw');
 };
 
-const handleModelChange = () => {
-    if (manualModel.value) {
-        return;
-    }
-};
-
 const handleAccountChange = () => {
     if (form.agentType !== 'openclaw') {
         return;
@@ -358,12 +346,8 @@ const handleAccountChange = () => {
     const selected = accountOptions.value.find((item) => item.id === form.accountId);
     if (selected) {
         form.baseURL = selected.baseUrl || '';
-        form.apiKey = selected.apiKey || '';
-        form.apiType = selected.apiType || 'openai-completions';
-        form.maxTokens = selected.maxTokens || 8192;
-        form.contextWindow = selected.contextWindow || 128000;
-        if ((selected.provider === 'custom' || selected.provider === 'vllm') && selected.model && !manualModel.value) {
-            form.model = selected.model;
+        if (!selected.models?.some((item) => item.id === form.model)) {
+            form.model = selected.models?.[0]?.id || '';
         }
     }
     setDefaultModel();
@@ -373,19 +357,13 @@ const setDefaultModel = () => {
     if (form.agentType !== 'openclaw') {
         return;
     }
-    if (manualModel.value) {
-        return;
-    }
     const models = filteredModels.value;
     if (models.length > 0 && !form.model) {
         form.model = models[0].id;
         return;
     }
-    if (form.provider === 'custom' || form.provider === 'vllm') {
-        const selected = accountOptions.value.find((item) => item.id === form.accountId);
-        if (selected?.model && !form.model) {
-            form.model = selected.model;
-        }
+    if (models.length === 0) {
+        form.model = '';
     }
 };
 
@@ -409,14 +387,8 @@ const submit = async () => {
             webUIPort: form.webUIPort,
             allowedOrigins: form.agentType === 'openclaw' ? parseAllowedOriginsInput(form.allowedOrigins) : undefined,
             agentType: form.agentType,
-            provider: form.agentType === 'openclaw' ? form.provider : undefined,
             model: form.agentType === 'openclaw' ? form.model : undefined,
-            apiType: form.agentType === 'openclaw' ? form.apiType : undefined,
-            maxTokens: form.agentType === 'openclaw' ? form.maxTokens : undefined,
-            contextWindow: form.agentType === 'openclaw' ? form.contextWindow : undefined,
             accountId: form.agentType === 'openclaw' ? form.accountId : undefined,
-            apiKey: form.agentType === 'openclaw' ? form.apiKey : undefined,
-            baseURL: form.agentType === 'openclaw' ? form.baseURL : undefined,
             token: form.agentType === 'openclaw' ? form.token : undefined,
             taskID: taskID,
             advanced: form.advanced,
@@ -458,8 +430,8 @@ const openDrawer = async (agentType?: 'openclaw' | 'copaw') => {
     const targetType = agentType === 'copaw' ? 'copaw' : 'openclaw';
     form.name = targetType === 'copaw' ? 'CoPaw' : 'OpenClaw';
     open.value = true;
-    manualModel.value = false;
     form.agentType = targetType;
+    setDefaultWebUIPort();
     form.token = getRandomStr(32).toLowerCase();
     if (form.agentType === 'copaw') {
         form.allowedOrigins = '';

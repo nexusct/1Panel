@@ -65,7 +65,6 @@ func InitAgentDB() {
 		migrations.AddCronjobArgs,
 		migrations.AddWebsiteAcmeAccountColumn,
 		migrations.AddAgentTables,
-		migrations.MigrateOpenclawAgents,
 		migrations.AddAgentCustomModelFields,
 		migrations.AddAppInstallSortOrder,
 		migrations.AddAgentAccountRememberAPIKey,
@@ -73,6 +72,10 @@ func InitAgentDB() {
 		migrations.AddAgentTypeForAgents,
 		migrations.NormalizeAgentAccountVerifiedStatus,
 		migrations.NormalizeOllamaAccountAPIType,
+		migrations.RewriteOpenclawBundledCaddyfile,
+		migrations.InitAgentAccountModelPool,
+		migrations.AddHostTable,
+		migrations.AddAITerminalSettings,
 	})
 	if err := m.Migrate(); err != nil {
 		global.LOG.Error(err)

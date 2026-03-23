@@ -82,6 +82,13 @@ export namespace Setting {
         scrollback: string;
         scrollSensitivity: string;
     }
+    export interface TerminalAIInfo {
+        aiStatus: string;
+        aiAccountId: string;
+        aiPrefix: string;
+        aiRiskCommands: string;
+        aiRiskCommandsDefault?: string;
+    }
     export interface SettingUpdate {
         key: string;
         value: string;
