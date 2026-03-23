@@ -38,3 +38,17 @@ if [ ! -f "GeoIP.mmdb" ]; then
 fi
 
 chmod 755 1pctl install.sh
+
+# Make application installer scripts executable
+SCRIPT_DIR="$(dirname "$0")"
+for installer in \
+    install_ai_tools.sh \
+    install_odoo.sh \
+    install_shopify.sh \
+    install_contentful.sh \
+    install_strapi.sh \
+    install_react_bricks.sh; do
+    if [ -f "${SCRIPT_DIR}/${installer}" ]; then
+        chmod +x "${SCRIPT_DIR}/${installer}"
+    fi
+done
