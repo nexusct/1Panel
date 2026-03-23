@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -12,6 +13,9 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
 	"github.com/gin-gonic/gin"
 )
+
+// validToolKey matches only lowercase alphanumeric characters and hyphens.
+var validToolKey = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // scriptMap maps tool keys to their ci/ script filenames.
 var installerScriptMap = map[string]string{
@@ -52,6 +56,11 @@ func (b *BaseApi) InstallTool(c *gin.Context) {
 		return
 	}
 
+	if !validToolKey.MatchString(req.Tool) {
+		helper.BadRequest(c, errors.New("invalid tool key"))
+		return
+	}
+
 	scriptFile, ok := installerScriptMap[req.Tool]
 	if !ok {
 		helper.BadRequest(c, errors.New("unknown tool: "+req.Tool))
@@ -88,6 +97,11 @@ func (b *BaseApi) InstallTool(c *gin.Context) {
 // GET /api/v2/toolbox/installer/status/:tool
 func (b *BaseApi) GetToolInstallStatus(c *gin.Context) {
 	tool := c.Param("tool")
+
+	if !validToolKey.MatchString(tool) {
+		helper.BadRequest(c, errors.New("invalid tool key"))
+		return
+	}
 
 	args, ok := installerCheckCmd[tool]
 	if !ok {
