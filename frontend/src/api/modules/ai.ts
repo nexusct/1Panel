@@ -113,6 +113,10 @@ export const updateAgentModelConfig = (req: AI.AgentModelConfigUpdateReq) => {
     return http.post(`/ai/agents/model/update`, req);
 };
 
+export const getAgentOverview = (req: AI.AgentOverviewReq) => {
+    return http.post<AI.AgentOverview>(`/ai/agents/overview`, req);
+};
+
 export const getAgentProviders = () => {
     return http.get<AI.ProviderInfo[]>(`/ai/agents/providers`);
 };
@@ -227,6 +231,30 @@ export const getAgentOtherConfig = (req: AI.AgentOtherConfigReq) => {
 
 export const updateAgentOtherConfig = (req: AI.AgentOtherConfigUpdateReq) => {
     return http.post(`/ai/agents/other/update`, req);
+};
+
+export const getAgentConfigFile = (req: AI.AgentConfigFileReq) => {
+    return http.post<AI.AgentConfigFile>(`/ai/agents/config-file/get`, req);
+};
+
+export const updateAgentConfigFile = (req: AI.AgentConfigFileUpdateReq) => {
+    return http.post(`/ai/agents/config-file/update`, req);
+};
+
+export const listAgentSkills = (req: AI.AgentSkillsReq) => {
+    return http.post<AI.AgentSkillItem[]>(`/ai/agents/skills/list`, req);
+};
+
+export const searchAgentSkills = (req: AI.AgentSkillSearchReq) => {
+    return http.post<AI.AgentSkillSearchItem[]>(`/ai/agents/skills/search`, req);
+};
+
+export const updateAgentSkill = (req: AI.AgentSkillUpdateReq) => {
+    return http.post(`/ai/agents/skills/update`, req);
+};
+
+export const installAgentSkill = (req: AI.AgentSkillInstallReq) => {
+    return http.post(`/ai/agents/skills/install`, req);
 };
 
 export const approveAgentChannelPairing = (req: AI.AgentChannelPairingApproveReq) => {

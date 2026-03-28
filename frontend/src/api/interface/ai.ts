@@ -303,6 +303,24 @@ export namespace AI {
         model: string;
     }
 
+    export interface AgentOverviewReq {
+        agentId: number;
+    }
+
+    export interface AgentOverviewSnapshot {
+        containerStatus: string;
+        appVersion: string;
+        defaultModel: string;
+        channelCount: number;
+        skillCount: number;
+        jobCount: number;
+        sessionCount: number;
+    }
+
+    export interface AgentOverview {
+        snapshot: AgentOverviewSnapshot;
+    }
+
     export interface AgentAccountModel {
         recordId: number;
         id: string;
@@ -578,11 +596,67 @@ export namespace AI {
     export interface AgentOtherConfig {
         userTimezone: string;
         browserEnabled: boolean;
+        npmRegistry: string;
     }
 
     export interface AgentOtherConfigUpdateReq {
         agentId: number;
         userTimezone: string;
         browserEnabled: boolean;
+        npmRegistry: string;
+    }
+
+    export interface AgentConfigFileReq {
+        agentId: number;
+    }
+
+    export interface AgentConfigFile {
+        content: string;
+    }
+
+    export interface AgentConfigFileUpdateReq {
+        agentId: number;
+        content: string;
+    }
+
+    export interface AgentSkillsReq {
+        agentId: number;
+    }
+
+    export interface AgentSkillSearchReq {
+        agentId: number;
+        source: 'clawhub' | 'skillhub';
+        keyword: string;
+    }
+
+    export interface AgentSkillItem {
+        name: string;
+        description: string;
+        source: string;
+        bundled: boolean;
+        disabled: boolean;
+    }
+
+    export interface AgentSkillSearchItem {
+        slug: string;
+        name: string;
+        description: string;
+        summary: string;
+        version: string;
+        source: string;
+        score: string;
+    }
+
+    export interface AgentSkillUpdateReq {
+        agentId: number;
+        name: string;
+        enabled: boolean;
+    }
+
+    export interface AgentSkillInstallReq {
+        agentId: number;
+        source: 'clawhub' | 'skillhub';
+        slug: string;
+        taskID: string;
     }
 }

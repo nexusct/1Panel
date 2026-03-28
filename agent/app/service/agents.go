@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/1Panel-dev/1Panel/agent/app/dto"
 	"github.com/1Panel-dev/1Panel/agent/app/dto/request"
@@ -16,6 +18,8 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
+	terminalai "github.com/1Panel-dev/1Panel/agent/utils/terminal/ai"
 	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
 	"gorm.io/gorm"
 )
@@ -26,11 +30,18 @@ type IAgentService interface {
 	Delete(req dto.AgentDeleteReq) error
 	ResetToken(req dto.AgentTokenResetReq) error
 	UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error
+	GetOverview(req dto.AgentOverviewReq) (*dto.AgentOverview, error)
 	GetProviders() ([]dto.ProviderInfo, error)
-	GetSecurityConfig(req dto.AgentSecurityConfigReq) (*dto.AgentSecurityConfig, error)
+	GetSecurityConfig(req dto.AgentIDReq) (*dto.AgentSecurityConfig, error)
 	UpdateSecurityConfig(req dto.AgentSecurityConfigUpdateReq) error
-	GetOtherConfig(req dto.AgentOtherConfigReq) (*dto.AgentOtherConfig, error)
+	GetOtherConfig(req dto.AgentIDReq) (*dto.AgentOtherConfig, error)
 	UpdateOtherConfig(req dto.AgentOtherConfigUpdateReq) error
+	GetConfigFile(req dto.AgentConfigFileReq) (*dto.AgentConfigFile, error)
+	UpdateConfigFile(req dto.AgentConfigFileUpdateReq) error
+	ListSkills(req dto.AgentIDReq) ([]dto.AgentSkillItem, error)
+	SearchSkills(req dto.AgentSkillSearchReq) ([]dto.AgentSkillSearchItem, error)
+	UpdateSkill(req dto.AgentSkillUpdateReq) error
+	InstallSkill(req dto.AgentSkillInstallReq) error
 
 	CreateAccount(req dto.AgentAccountCreateReq) error
 	UpdateAccount(req dto.AgentAccountUpdateReq) error
@@ -47,14 +58,14 @@ type IAgentService interface {
 	UpdateFeishuConfig(req dto.AgentFeishuConfigUpdateReq) error
 	GetTelegramConfig(req dto.AgentTelegramConfigReq) (*dto.AgentTelegramConfig, error)
 	UpdateTelegramConfig(req dto.AgentTelegramConfigUpdateReq) error
-	GetDiscordConfig(req dto.AgentDiscordConfigReq) (*dto.AgentDiscordConfig, error)
+	GetDiscordConfig(req dto.AgentIDReq) (*dto.AgentDiscordConfig, error)
 	UpdateDiscordConfig(req dto.AgentDiscordConfigUpdateReq) error
-	GetWecomConfig(req dto.AgentWecomConfigReq) (*dto.AgentWecomConfig, error)
+	GetWecomConfig(req dto.AgentIDReq) (*dto.AgentWecomConfig, error)
 	UpdateWecomConfig(req dto.AgentWecomConfigUpdateReq) error
-	GetDingTalkConfig(req dto.AgentDingTalkConfigReq) (*dto.AgentDingTalkConfig, error)
+	GetDingTalkConfig(req dto.AgentIDReq) (*dto.AgentDingTalkConfig, error)
 	UpdateDingTalkConfig(req dto.AgentDingTalkConfigUpdateReq) error
 	LoginWeixinChannel(req dto.AgentWeixinLoginReq) error
-	GetQQBotConfig(req dto.AgentQQBotConfigReq) (*dto.AgentQQBotConfig, error)
+	GetQQBotConfig(req dto.AgentIDReq) (*dto.AgentQQBotConfig, error)
 	UpdateQQBotConfig(req dto.AgentQQBotConfigUpdateReq) error
 	InstallPlugin(req dto.AgentPluginInstallReq) error
 	CheckPlugin(req dto.AgentPluginCheckReq) (*dto.AgentPluginStatus, error)
@@ -69,10 +80,14 @@ const (
 	defaultToolsSessionVisibility = "all"
 	maxCommunityAIAgents          = int64(5)
 	openclawPluginBaseDir         = "/home/node/.openclaw/extensions"
+	openclawPluginPackageTmpDir   = "/tmp/openclaw-plugin"
+	openclawManagedSkillsDir      = "/home/node/.openclaw/skills"
 	openclawGatewayPort           = 18789
 	openclawAllowedOriginHost     = "127.0.0.1"
 	openclawHTTPSVersion          = "2026.3.13"
+	openclawHTTPVersion           = "2026.3.23"
 	openclawTrustedProxyLoopback  = "127.0.0.1/32"
+	defaultOpenclawNPMRegistry    = "https://registry.npmjs.org/"
 )
 
 func (a AgentService) Create(req dto.AgentCreateReq) (*dto.AgentItem, error) {
@@ -168,7 +183,11 @@ func (a AgentService) Create(req dto.AgentCreateReq) (*dto.AgentItem, error) {
 		constant.HostIP:      "",
 	}
 	if agentType == constant.AppOpenclaw {
-		params["PANEL_APP_PORT_HTTPS"] = req.WebUIPort
+		if isOpenclawHTTPSWindowVersion(detail.Version) {
+			params["PANEL_APP_PORT_HTTPS"] = req.WebUIPort
+		} else {
+			params["PANEL_APP_PORT_HTTP"] = req.WebUIPort
+		}
 		if allowedOrigin := firstAllowedOrigin(allowedOrigins); allowedOrigin != "" {
 			params["ALLOWED_ORIGIN"] = allowedOrigin
 		}
@@ -279,12 +298,9 @@ func (a AgentService) Delete(req dto.AgentDeleteReq) error {
 }
 
 func (a AgentService) ResetToken(req dto.AgentTokenResetReq) error {
-	agent, err := agentRepo.GetFirst(repo.WithByID(req.ID))
+	agent, err := loadOpenclawAgentByID(req.ID)
 	if err != nil {
 		return err
-	}
-	if agent.AgentType == constant.AppCopaw {
-		return fmt.Errorf("copaw does not support token")
 	}
 	conf, err := readOpenclawConfig(agent.ConfigPath)
 	if err != nil {
@@ -308,12 +324,9 @@ func (a AgentService) ResetToken(req dto.AgentTokenResetReq) error {
 }
 
 func (a AgentService) UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error {
-	agent, err := agentRepo.GetFirst(repo.WithByID(req.AgentID))
+	agent, err := loadOpenclawAgentByID(req.AgentID)
 	if err != nil {
 		return err
-	}
-	if agent.AgentType == constant.AppCopaw {
-		return fmt.Errorf("copaw does not support model config")
 	}
 	account, err := agentAccountRepo.GetFirst(repo.WithByID(req.AccountID))
 	if err != nil {
@@ -428,6 +441,7 @@ func (a AgentService) UpdateAccount(req dto.AgentAccountUpdateReq) error {
 	if err := global.DB.Save(account).Error; err != nil {
 		return err
 	}
+	terminalai.InvalidateTerminalRuntimeCache()
 	if req.SyncAgents {
 		if err := a.syncAgentsByAccount(account); err != nil {
 			return err
@@ -567,6 +581,7 @@ func (a AgentService) UpdateAccountModel(req dto.AgentAccountModelUpdateReq) err
 	if err := agentAccountModelRepo.Save(record); err != nil {
 		return err
 	}
+	terminalai.InvalidateTerminalRuntimeCache()
 	return a.syncAgentsByAccount(account)
 }
 
@@ -598,6 +613,7 @@ func (a AgentService) DeleteAccountModel(req dto.AgentAccountModelDeleteReq) err
 	if err := compactPersistedAgentAccountModelSortOrder(req.AccountID); err != nil {
 		return err
 	}
+	terminalai.InvalidateTerminalRuntimeCache()
 	return a.syncAgentsByAccount(account)
 }
 
@@ -620,16 +636,14 @@ func (a AgentService) DeleteAccount(req dto.AgentAccountDeleteReq) error {
 	if err := agentAccountModelRepo.Delete(repo.WithByAccountID(req.ID)); err != nil {
 		return err
 	}
+	terminalai.InvalidateTerminalRuntimeCache()
 	return agentAccountRepo.DeleteByID(req.ID)
 }
 
-func (a AgentService) GetSecurityConfig(req dto.AgentSecurityConfigReq) (*dto.AgentSecurityConfig, error) {
-	agent, _, err := a.loadAgentAndInstall(req.AgentID)
+func (a AgentService) GetSecurityConfig(req dto.AgentIDReq) (*dto.AgentSecurityConfig, error) {
+	agent, _, err := a.loadOpenclawAgentAndInstall(req.AgentID)
 	if err != nil {
 		return nil, err
-	}
-	if agent.AgentType == constant.AppCopaw {
-		return nil, fmt.Errorf("copaw does not support security config")
 	}
 	conf, err := readOpenclawConfig(agent.ConfigPath)
 	if err != nil {
@@ -640,12 +654,9 @@ func (a AgentService) GetSecurityConfig(req dto.AgentSecurityConfigReq) (*dto.Ag
 }
 
 func (a AgentService) UpdateSecurityConfig(req dto.AgentSecurityConfigUpdateReq) error {
-	agent, install, err := a.loadAgentAndInstall(req.AgentID)
+	agent, install, err := a.loadOpenclawAgentAndInstall(req.AgentID)
 	if err != nil {
 		return err
-	}
-	if agent.AgentType == constant.AppCopaw {
-		return fmt.Errorf("copaw does not support security config")
 	}
 	allowedOrigins, err := normalizeAllowedOrigins(req.AllowedOrigins)
 	if err != nil {
@@ -668,8 +679,8 @@ func (a AgentService) UpdateSecurityConfig(req dto.AgentSecurityConfigUpdateReq)
 	return appInstallRepo.Save(context.Background(), install)
 }
 
-func (a AgentService) GetOtherConfig(req dto.AgentOtherConfigReq) (*dto.AgentOtherConfig, error) {
-	agent, _, err := a.loadAgentAndInstall(req.AgentID)
+func (a AgentService) GetOtherConfig(req dto.AgentIDReq) (*dto.AgentOtherConfig, error) {
+	agent, install, err := a.loadAgentAndInstall(req.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -678,12 +689,19 @@ func (a AgentService) GetOtherConfig(req dto.AgentOtherConfigReq) (*dto.AgentOth
 		return nil, err
 	}
 	result := extractOtherConfig(conf)
+	npmRegistry, err := getOpenclawNPMRegistry(install.ContainerName)
+	if err == nil {
+		result.NPMRegistry = npmRegistry
+	}
 	return &result, nil
 }
 
 func (a AgentService) UpdateOtherConfig(req dto.AgentOtherConfigUpdateReq) error {
-	agent, _, err := a.loadAgentAndInstall(req.AgentID)
+	agent, install, err := a.loadAgentAndInstall(req.AgentID)
 	if err != nil {
+		return err
+	}
+	if err := ensureContainerRunning(install.ContainerName); err != nil {
 		return err
 	}
 	conf, err := readOpenclawConfig(agent.ConfigPath)
@@ -697,7 +715,57 @@ func (a AgentService) UpdateOtherConfig(req dto.AgentOtherConfigUpdateReq) error
 	if err := writeOpenclawConfigRaw(agent.ConfigPath, conf); err != nil {
 		return err
 	}
-	return nil
+	return setOpenclawNPMRegistry(install.ContainerName, req.NPMRegistry)
+}
+
+func (a AgentService) GetConfigFile(req dto.AgentConfigFileReq) (*dto.AgentConfigFile, error) {
+	agent, _, err := a.loadOpenclawAgentAndInstall(req.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	content, err := os.ReadFile(agent.ConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.AgentConfigFile{Content: string(content)}, nil
+}
+
+func (a AgentService) UpdateConfigFile(req dto.AgentConfigFileUpdateReq) error {
+	agent, install, err := a.loadOpenclawAgentAndInstall(req.AgentID)
+	if err != nil {
+		return err
+	}
+	var payload interface{}
+	if err := json.Unmarshal([]byte(req.Content), &payload); err != nil {
+		return err
+	}
+	info, err := os.Stat(agent.ConfigPath)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(agent.ConfigPath, []byte(req.Content), info.Mode()); err != nil {
+		return err
+	}
+	return NewIAppInstalledService().Operate(request.AppInstalledOperate{
+		InstallId: install.ID,
+		Operate:   constant.Restart,
+	})
+}
+
+func getOpenclawNPMRegistry(containerName string) (string, error) {
+	registry, err := cmd.RunDefaultWithStdoutBashCfAndTimeOut("docker exec %s npm get registry", 20*time.Second, containerName)
+	if err != nil {
+		return "", err
+	}
+	registry = strings.TrimSpace(registry)
+	if registry == "" {
+		return defaultOpenclawNPMRegistry, nil
+	}
+	return registry, nil
+}
+
+func setOpenclawNPMRegistry(containerName, registry string) error {
+	return cmd.RunDefaultBashCf("docker exec %s npm set registry %q", containerName, registry)
 }
 
 func (a AgentService) loadAgentAndInstall(agentID uint) (*model.Agent, *model.AppInstall, error) {
@@ -715,6 +783,17 @@ func (a AgentService) loadAgentAndInstall(agentID uint) (*model.Agent, *model.Ap
 	return agent, &install, nil
 }
 
+func (a AgentService) loadOpenclawAgentAndInstall(agentID uint) (*model.Agent, *model.AppInstall, error) {
+	agent, install, err := a.loadAgentAndInstall(agentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if agent.AgentType == constant.AppCopaw {
+		return nil, nil, fmt.Errorf("copaw does not support")
+	}
+	return agent, install, nil
+}
+
 func (a AgentService) loadAgentConfig(agentID uint) (*model.Agent, *model.AppInstall, map[string]interface{}, error) {
 	agent, install, err := a.loadAgentAndInstall(agentID)
 	if err != nil {
@@ -723,6 +802,17 @@ func (a AgentService) loadAgentConfig(agentID uint) (*model.Agent, *model.AppIns
 	conf, err := readOpenclawConfig(agent.ConfigPath)
 	if err != nil {
 		return nil, nil, nil, err
+	}
+	return agent, install, conf, nil
+}
+
+func (a AgentService) loadOpenclawAgentConfig(agentID uint) (*model.Agent, *model.AppInstall, map[string]interface{}, error) {
+	agent, install, conf, err := a.loadAgentConfig(agentID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if agent.AgentType == constant.AppCopaw {
+		return nil, nil, nil, fmt.Errorf("copaw does not support")
 	}
 	return agent, install, conf, nil
 }

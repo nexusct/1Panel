@@ -2,6 +2,8 @@ ErrInvalidParams: '잘못된 요청: {{ .detail }}'
 ErrTokenParse: '토큰 오류: {{ .detail }}'
 ErrInitialPassword: '원래 비밀번호가 틀립니다'
 ErrInternalServer: '서버 오류: {{ .detail }}'
+ErrWgetRemoteFailed: '원격 다운로드 주소가 잘못되었거나 접근할 수 없습니다: {{ .detail }}'
+ErrWgetInvalidContentType: '원격 주소가 파일이 아닌 콘텐츠를 반환했습니다 (오류 페이지일 수 있음), {{ .detail }}'
 ErrRecordExist: '레코드가 이미 있습니다'
 ErrRecordNotFound: '레코드를 찾을 수 없습니다'
 ErrStructTransform: '형 변환 실패: {{ .err }}'
@@ -510,3 +512,6 @@ XfsNotFound: 'xfs 파일 시스템이 감지되지 않았습니다, 먼저 xfspr
 
 # terminal
 TerminalAIBlockedRiskyCommand: '위험한 명령이 차단되었습니다: {{ .command }}'
+TerminalAIThinking: 'AI가 생각 중입니다...'
+TerminalAIReadyToExecute: '생각이 완료되었습니다. Enter를 눌러 실행하세요 (소요 시간 {{ .duration }}, token: {{ .tokens }})'
+TerminalAIRequestFailed: 'AI 요청 실패: {{ .err }}'

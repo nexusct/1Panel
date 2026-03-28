@@ -41,7 +41,31 @@
                     </el-table-column>
                     <el-table-column :label="$t('commons.table.status')" prop="status" width="120">
                         <template #default="{ row }">
-                            <Status :status="row.status" />
+                            <el-dropdown placement="bottom">
+                                <Status :status="row.status" :operate="true" />
+                                <template #dropdown>
+                                    <el-dropdown-menu>
+                                        <el-dropdown-item
+                                            :disabled="checkStatus('start', row)"
+                                            @click="onOperate(row, 'start')"
+                                        >
+                                            {{ $t('commons.operate.start') }}
+                                        </el-dropdown-item>
+                                        <el-dropdown-item
+                                            :disabled="checkStatus('stop', row)"
+                                            @click="onOperate(row, 'stop')"
+                                        >
+                                            {{ $t('commons.operate.stop') }}
+                                        </el-dropdown-item>
+                                        <el-dropdown-item
+                                            :disabled="checkStatus('restart', row)"
+                                            @click="onOperate(row, 'restart')"
+                                        >
+                                            {{ $t('commons.button.restart') }}
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
                         </template>
                     </el-table-column>
                     <el-table-column :label="$t('aiTools.agents.appVersion')" prop="appVersion" min-width="140">
@@ -58,7 +82,7 @@
                         :label="$t('aiTools.model.model')"
                         show-overflow-tooltip
                         prop="provider"
-                        min-width="120"
+                        min-width="150"
                     >
                         <template #default="{ row }">
                             <template v-if="row.agentType !== 'copaw'">
@@ -70,7 +94,7 @@
                             <span v-else>-</span>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('commons.table.port')" prop="webUIPort" min-width="150">
+                    <el-table-column :label="$t('commons.table.port')" prop="webUIPort" min-width="180">
                         <template #default="{ row }">
                             <el-button icon="Position" plain size="small" @click="jumpWebUI(row)">
                                 {{ $t('aiTools.agents.webuiPort') }}: {{ row.webUIPort }}
@@ -86,7 +110,7 @@
                             </el-button>
                         </template>
                     </el-table-column>
-                    <el-table-column :label="$t('aiTools.agents.token')" min-width="80">
+                    <el-table-column label="Token" min-width="120">
                         <template #default="{ row }">
                             <el-space v-if="row.agentType !== 'copaw'">
                                 <CopyButton :content="row.token" />
@@ -106,7 +130,7 @@
                     />
                     <fu-table-operations
                         :buttons="buttons"
-                        min-width="220"
+                        min-width="200"
                         :label="$t('commons.table.operate')"
                         fixed="right"
                         :ellipsis="3"
@@ -118,6 +142,7 @@
         <TaskLog ref="taskLogRef" @close="search" />
         <DeleteDialog ref="deleteRef" @close="search" />
         <ConfigDrawer ref="configRef" @updated="search" />
+        <OverviewDrawer ref="overviewRef" />
         <AppUpgrade ref="upgradeRef" @close="search" />
         <ComposeLogs ref="composeLogRef" />
         <AgentTerminalDialog ref="dialogTerminalRef" />
@@ -140,6 +165,7 @@ import RouterMenu from '@/views/ai/agents/index.vue';
 import AddDialog from '@/views/ai/agents/agent/add/index.vue';
 import DeleteDialog from '@/views/ai/agents/agent/delete/index.vue';
 import ConfigDrawer from '@/views/ai/agents/agent/config/index.vue';
+import OverviewDrawer from '@/views/ai/agents/agent/components/overview.vue';
 import AppUpgrade from '@/views/app-store/installed/upgrade/index.vue';
 import TaskLog from '@/components/log/task/index.vue';
 import ComposeLogs from '@/components/log/compose/index.vue';
@@ -147,9 +173,8 @@ import AgentTerminalDialog from '@/views/ai/agents/agent/components/terminal.vue
 import i18n from '@/lang';
 import PortJumpDialog from '@/components/port-jump/index.vue';
 import DockerStatus from '@/views/container/docker-status/index.vue';
-import { getAgentProviderDisplayName } from '@/utils/agent';
+import { getAgentProviderDisplayName, getOpenclawAccessScheme } from '@/utils/agent';
 import { routerToFileWithPath } from '@/utils/router';
-import { compareVersion } from '@/utils/version';
 import NoApp from '@/views/app-store/apps/no-app/index.vue';
 import openclawIcon from '@/assets/images/ai-agent-openclaw.svg';
 import copawIcon from '@/assets/images/ai-agent-copaw.svg';
@@ -160,6 +185,7 @@ const addRef = ref();
 const taskLogRef = ref();
 const deleteRef = ref();
 const configRef = ref();
+const overviewRef = ref();
 const upgradeRef = ref();
 const composeLogRef = ref();
 const dialogTerminalRef = ref();
@@ -185,6 +211,11 @@ const buttons = [
     {
         label: i18n.global.t('commons.button.log'),
         click: (row: AI.AgentItem) => openLog(row),
+    },
+    {
+        label: i18n.global.t('menu.home'),
+        click: (row: AI.AgentItem) => openOverview(row),
+        show: (row: AI.AgentItem) => row.agentType !== 'copaw',
     },
     {
         label: i18n.global.t('commons.operate.start'),
@@ -278,6 +309,20 @@ const openTaskLog = (taskID: string) => {
     }
 };
 
+const checkStatus = (operate: string, row: AI.AgentItem) => {
+    const status = row.status.toLowerCase();
+    switch (operate) {
+        case 'start':
+            return status === 'running' || status === 'starting' || status === 'restarting';
+        case 'stop':
+            return status !== 'running';
+        case 'restart':
+            return status === 'starting';
+        default:
+            return false;
+    }
+};
+
 const onOperate = async (row: AI.AgentItem, operate: string) => {
     await ElMessageBox.confirm(
         i18n.global.t('app.operatorHelper', [i18n.global.t('commons.operate.' + operate)]),
@@ -322,24 +367,11 @@ const openWorkDir = (row: AI.AgentItem) => {
     routerToFileWithPath(`${row.path}/data`);
 };
 
-const isOpenClawHttpsVersion = (version: string) => {
-    const target = String(version || '')
-        .trim()
-        .toLowerCase();
-    if (!target || target === 'latest') {
-        return true;
-    }
-    if (!/\d/.test(target)) {
-        return true;
-    }
-    return compareVersion(target, '2026.3.13');
-};
-
 const jumpWebUI = (row: AI.AgentItem) => {
     if (dialogPortJumpRef.value?.acceptParams) {
         dialogPortJumpRef.value.acceptParams({
             port: row.webUIPort,
-            protocol: row.agentType === 'openclaw' && isOpenClawHttpsVersion(row.appVersion) ? 'https' : 'http',
+            protocol: row.agentType === 'openclaw' ? getOpenclawAccessScheme(row.appVersion) : 'http',
             path: row.agentType === 'copaw' ? undefined : '/',
             hash: row.agentType === 'copaw' ? undefined : `token=${row.token}`,
         });
@@ -366,10 +398,11 @@ const onResetToken = async (row: AI.AgentItem) => {
 };
 
 const openConfig = (row: AI.AgentItem) => {
-    if (row.agentType === 'copaw') {
-        return;
-    }
     configRef.value?.open(row);
+};
+
+const openOverview = (row: AI.AgentItem) => {
+    overviewRef.value?.acceptParams(row);
 };
 
 const openUpgrade = async (row: AI.AgentItem) => {

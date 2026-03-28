@@ -1,19 +1,20 @@
 <template>
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+    <VersionSupport v-if="!supported" :min-version="openclawMinSupportedVersion" />
+    <el-form v-else ref="formRef" :model="form" :rules="rules" label-position="top">
         <PluginInstall :installed="installed" :installing="installing" @install="installPlugin" />
         <el-form-item :label="t('commons.table.status')">
             <el-switch v-model="form.enabled" />
         </el-form-item>
-        <el-form-item :label="t('aiTools.agents.clientId')" prop="clientId">
+        <el-form-item label="Client ID" prop="clientId">
             <el-input v-model="form.clientId" />
         </el-form-item>
-        <el-form-item :label="t('aiTools.agents.clientSecret')" prop="clientSecret">
+        <el-form-item label="Client Secret" prop="clientSecret">
             <el-input v-model="form.clientSecret" type="password" show-password />
         </el-form-item>
         <el-form-item :label="t('aiTools.agents.dmPolicy')" prop="dmPolicy">
             <el-select v-model="form.dmPolicy">
-                <el-option :label="t('aiTools.agents.policyPairing')" value="pairing" />
-                <el-option :label="t('aiTools.agents.policyAllowlist')" value="allowlist" />
+                <el-option :label="t('aiTools.agents.pairingCode')" value="pairing" />
+                <el-option :label="t('waf.black.whiteList')" value="allowlist" />
                 <el-option :label="t('aiTools.agents.policyOpen')" value="open" />
                 <el-option :label="t('aiTools.agents.policyDisabled')" value="disabled" />
             </el-select>
@@ -30,7 +31,7 @@
         <el-form-item :label="t('aiTools.agents.groupPolicy')" prop="groupPolicy">
             <el-select v-model="form.groupPolicy">
                 <el-option :label="t('aiTools.agents.policyOpen')" value="open" />
-                <el-option :label="t('aiTools.agents.policyAllowlist')" value="allowlist" />
+                <el-option :label="t('waf.black.whiteList')" value="allowlist" />
                 <el-option :label="t('aiTools.agents.policyDisabled')" value="disabled" />
             </el-select>
         </el-form-item>
@@ -68,21 +69,28 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import type { FormInstance, FormRules } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { AI } from '@/api/interface/ai';
 import { approveAgentChannelPairing, getAgentDingTalkConfig, updateAgentDingTalkConfig } from '@/api/modules/ai';
 import { MsgSuccess, MsgWarning } from '@/utils/message';
 import { Rules } from '@/global/form-rules';
+import { isOpenclawCurrentHTTPVersion } from '@/utils/agent';
 import TaskLog from '@/components/log/task/index.vue';
 import PluginInstall from './components/plugin-install.vue';
+import VersionSupport from '../components/version-support.vue';
 import { useAgentPluginChannel } from './useAgentPluginChannel';
 
 interface DingTalkForm extends Omit<AI.AgentDingTalkConfig, 'installed'> {
     allowFromText: string;
     groupAllowFromText: string;
 }
+
+const openclawMinSupportedVersion = '2026.3.23';
+const props = defineProps<{
+    appVersion: string;
+}>();
 
 const { t } = useI18n();
 const saving = ref(false);
@@ -91,6 +99,7 @@ const pairingCode = ref('');
 const formRef = ref<FormInstance>();
 const { agentId, installed, installing, taskLogRef, checkPluginStatus, loadPlugin, installPlugin } =
     useAgentPluginChannel('dingtalk');
+const supported = computed(() => isOpenclawCurrentHTTPVersion(props.appVersion));
 
 const form = reactive<DingTalkForm>({
     enabled: true,
@@ -149,6 +158,9 @@ const rules = reactive<FormRules>({
 });
 
 const load = async (id: number) => {
+    if (!supported.value) {
+        return;
+    }
     await loadPlugin(id);
     pairingCode.value = '';
     const res = await getAgentDingTalkConfig({ agentId: id });
@@ -164,7 +176,7 @@ const load = async (id: number) => {
 };
 
 const saveChannel = async () => {
-    if (!agentId.value || !formRef.value) {
+    if (!supported.value || !agentId.value || !formRef.value) {
         return;
     }
     await formRef.value.validate();
@@ -187,11 +199,11 @@ const saveChannel = async () => {
 };
 
 const approvePairing = async () => {
-    if (!agentId.value) {
+    if (!supported.value || !agentId.value) {
         return;
     }
     if (!pairingCode.value) {
-        MsgWarning(t('aiTools.agents.pairingCodeRequired'));
+        MsgWarning(t('aiTools.agents.pairingCodePlaceholder'));
         return;
     }
     approving.value = true;

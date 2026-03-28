@@ -5,7 +5,7 @@
                 <el-form-item :label="$t('commons.table.name')" prop="name">
                     <el-input v-model="form.name" />
                 </el-form-item>
-                <el-form-item :label="`${$t('aiTools.agents.agents')}${$t('commons.table.type')}`" prop="agentType">
+                <el-form-item :label="`${$t('aiTools.agents.agent')}${$t('commons.table.type')}`" prop="agentType">
                     <el-select v-model="form.agentType" @change="handleAgentTypeChange">
                         <el-option :label="$t('aiTools.agents.openclawType')" value="openclaw" />
                         <el-option :label="$t('aiTools.agents.copawType')" value="copaw" />
@@ -28,12 +28,9 @@
                         v-model="form.allowedOrigins"
                         type="textarea"
                         :rows="3"
-                        :placeholder="$t('aiTools.agents.allowedOriginsPlaceholder')"
+                        :placeholder="allowedOriginsPlaceholder"
                         @input="handleAllowedOriginsInput"
                     />
-                    <span class="input-help">
-                        {{ $t('aiTools.agents.allowedOriginsHelper') }}
-                    </span>
                 </el-form-item>
             </el-card>
             <el-card class="form-card" v-if="form.agentType === 'openclaw'">
@@ -76,10 +73,10 @@
                     </el-select>
                     <span class="input-help">{{ $t('aiTools.agents.accountModelsHelper') }}</span>
                 </el-form-item>
-                <el-form-item :label="$t('aiTools.agents.baseUrl')" v-if="form.accountId" prop="baseURL">
+                <el-form-item label="Base URL" v-if="form.accountId" prop="baseURL">
                     <el-input v-model="form.baseURL" disabled />
                 </el-form-item>
-                <el-form-item :label="$t('aiTools.agents.token')">
+                <el-form-item label="Token">
                     <el-input v-model="form.token" disabled>
                         <template #append>
                             <CopyButton :content="form.token" />
@@ -199,11 +196,13 @@ const filteredModels = computed(() => {
     return selected?.models || [];
 });
 
+const allowedOriginsPlaceholder = computed(() => buildDefaultAllowedOrigin('192.168.1.2', 18789, form.appVersion));
+
 const syncAllowedOriginsWithDefault = (force = false) => {
     if (form.agentType !== 'openclaw') {
         return;
     }
-    const defaultOrigin = buildDefaultAllowedOrigin(systemIP.value, form.webUIPort);
+    const defaultOrigin = buildDefaultAllowedOrigin(systemIP.value, form.webUIPort, form.appVersion);
     if (!force && !allowedOriginsAutoFilled.value && form.allowedOrigins !== lastAutoAllowedOrigins.value) {
         return;
     }
@@ -479,6 +478,7 @@ watch(
         if (!value || value === oldValue) {
             return;
         }
+        syncAllowedOriginsWithDefault();
         if (form.editCompose) {
             await loadCompose();
         }

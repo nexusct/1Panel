@@ -2,6 +2,8 @@ ErrInvalidParams: 'İstek geçersiz: {{ .detail }}'
 ErrTokenParse: 'Token hatası: {{ .detail }}'
 ErrInitialPassword: 'Orijinal şifre yanlış'
 ErrInternalServer: 'Sunucu hatası: {{ .detail }}'
+ErrWgetRemoteFailed: 'Uzak indirme başarısız veya URL erişilemiyor: {{ .detail }}'
+ErrWgetInvalidContentType: 'Uzak URL bir dosya değil, muhtemelen bir hata sayfası döndürdü, {{ .detail }}'
 ErrRecordExist: 'Kayıt zaten var'
 ErrRecordNotFound: 'Kayıt bulunamadı'
 ErrStructTransform: 'Dönüşüm hatası: {{ .err }}'
@@ -510,3 +512,6 @@ XfsNotFound: 'XFS dosya sistemi algılanmadı, lütfen önce xfsprogs''i yükley
 
 # terminal
 TerminalAIBlockedRiskyCommand: 'Riskli komut engellendi: {{ .command }}'
+TerminalAIThinking: 'AI dusunuyor...'
+TerminalAIReadyToExecute: 'Dusunme tamamlandi, calistirmak icin Enter tusuna basin (sure: {{ .duration }}, token: {{ .tokens }})'
+TerminalAIRequestFailed: 'AI istegi basarisiz oldu: {{ .err }}'

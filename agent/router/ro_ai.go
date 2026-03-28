@@ -45,6 +45,7 @@ func (a *AIToolsRouter) InitRouter(Router *gin.RouterGroup) {
 		aiToolsRouter.POST("/agents/delete", baseApi.DeleteAgent)
 		aiToolsRouter.POST("/agents/token/reset", baseApi.ResetAgentToken)
 		aiToolsRouter.POST("/agents/model/update", baseApi.UpdateAgentModelConfig)
+		aiToolsRouter.POST("/agents/overview", baseApi.GetAgentOverview)
 		aiToolsRouter.GET("/agents/providers", baseApi.GetAgentProviders)
 		aiToolsRouter.POST("/agents/accounts", baseApi.CreateAgentAccount)
 		aiToolsRouter.POST("/agents/accounts/update", baseApi.UpdateAgentAccount)
@@ -74,6 +75,12 @@ func (a *AIToolsRouter) InitRouter(Router *gin.RouterGroup) {
 		aiToolsRouter.POST("/agents/security/update", baseApi.UpdateAgentSecurityConfig)
 		aiToolsRouter.POST("/agents/other/get", baseApi.GetAgentOtherConfig)
 		aiToolsRouter.POST("/agents/other/update", baseApi.UpdateAgentOtherConfig)
+		aiToolsRouter.POST("/agents/config-file/get", baseApi.GetAgentConfigFile)
+		aiToolsRouter.POST("/agents/config-file/update", baseApi.UpdateAgentConfigFile)
+		aiToolsRouter.POST("/agents/skills/list", baseApi.ListAgentSkills)
+		aiToolsRouter.POST("/agents/skills/search", baseApi.SearchAgentSkills)
+		aiToolsRouter.POST("/agents/skills/update", baseApi.UpdateAgentSkill)
+		aiToolsRouter.POST("/agents/skills/install", baseApi.InstallAgentSkill)
 		aiToolsRouter.POST("/agents/channel/pairing/approve", baseApi.ApproveAgentChannelPairing)
 	}
 }

@@ -2,6 +2,8 @@ ErrInvalidParams: 'Solicitud inválida: {{ .detail }}'
 ErrTokenParse: 'Token inválido: {{ .detail }}'
 ErrInitialPassword: 'Contraseña original incorrecta'
 ErrInternalServer: 'Error interno: {{ .detail }}'
+ErrWgetRemoteFailed: 'La descarga remota falló o la URL no es accesible: {{ .detail }}'
+ErrWgetInvalidContentType: 'La URL remota no devolvió un archivo (posiblemente una página de error), {{ .detail }}'
 ErrRecordExist: 'Registro ya existe'
 ErrRecordNotFound: 'Registro no encontrado'
 ErrStructTransform: 'Error de conversión: {{ .err }}'
@@ -510,3 +512,6 @@ XfsNotFound: 'No se detectó el sistema de archivos xfs instale xfsprogs primero
 
 # terminal
 TerminalAIBlockedRiskyCommand: 'Comando de riesgo bloqueado: {{ .command }}'
+TerminalAIThinking: 'La IA está pensando...'
+TerminalAIReadyToExecute: 'Pensamiento completado, pulsa Enter para ejecutar (duración: {{ .duration }}, token: {{ .tokens }})'
+TerminalAIRequestFailed: 'La solicitud de AI ha fallado: {{ .err }}'

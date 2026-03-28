@@ -58,7 +58,7 @@ func (a AgentService) UpdateTelegramConfig(req dto.AgentTelegramConfigUpdateReq)
 	})
 }
 
-func (a AgentService) GetDiscordConfig(req dto.AgentDiscordConfigReq) (*dto.AgentDiscordConfig, error) {
+func (a AgentService) GetDiscordConfig(req dto.AgentIDReq) (*dto.AgentDiscordConfig, error) {
 	_, _, conf, err := a.loadAgentConfig(req.AgentID)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (a AgentService) UpdateDiscordConfig(req dto.AgentDiscordConfigUpdateReq) e
 	})
 }
 
-func (a AgentService) GetQQBotConfig(req dto.AgentQQBotConfigReq) (*dto.AgentQQBotConfig, error) {
+func (a AgentService) GetQQBotConfig(req dto.AgentIDReq) (*dto.AgentQQBotConfig, error) {
 	_, install, conf, err := a.loadAgentConfig(req.AgentID)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (a AgentService) UpdateQQBotConfig(req dto.AgentQQBotConfigUpdateReq) error
 	})
 }
 
-func (a AgentService) GetWecomConfig(req dto.AgentWecomConfigReq) (*dto.AgentWecomConfig, error) {
+func (a AgentService) GetWecomConfig(req dto.AgentIDReq) (*dto.AgentWecomConfig, error) {
 	_, install, conf, err := a.loadAgentConfig(req.AgentID)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func (a AgentService) UpdateWecomConfig(req dto.AgentWecomConfigUpdateReq) error
 	})
 }
 
-func (a AgentService) GetDingTalkConfig(req dto.AgentDingTalkConfigReq) (*dto.AgentDingTalkConfig, error) {
+func (a AgentService) GetDingTalkConfig(req dto.AgentIDReq) (*dto.AgentDingTalkConfig, error) {
 	_, install, conf, err := a.loadAgentConfig(req.AgentID)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,15 @@ func (a AgentService) InstallPlugin(req dto.AgentPluginInstallReq) error {
 	}
 	installTask.AddSubTask("Install OpenClaw plugin", func(t *task.Task) error {
 		mgr := cmd.NewCommandMgr(cmd.WithTask(*t), cmd.WithContext(t.TaskCtx), cmd.WithTimeout(10*time.Minute))
-		if err := mgr.RunBashCf("docker exec %s openclaw plugins install %s", install.ContainerName, spec); err != nil {
+		if req.Type == "qqbot" {
+			legacyPluginPath := path.Join(openclawPluginBaseDir, "qqbot")
+			if err := mgr.RunBashCf("docker exec %s test -d %s", install.ContainerName, legacyPluginPath); err == nil {
+				if err := mgr.Run("docker", "exec", "-i", install.ContainerName, "sh", "-c", "printf 'yes\\n' | openclaw plugins uninstall qqbot"); err != nil {
+					return err
+				}
+			}
+		}
+		if err := mgr.Run("docker", "exec", install.ContainerName, "sh", "-c", buildOpenclawPluginInstallScript(spec, pluginID)); err != nil {
 			return err
 		}
 		conf, err := readOpenclawConfig(agent.ConfigPath)
@@ -532,6 +540,7 @@ func setDingTalkConfig(conf map[string]interface{}, config dto.AgentDingTalkConf
 func setQQBotConfig(conf map[string]interface{}, config dto.AgentQQBotConfig) {
 	channels := ensureChildMap(conf, "channels")
 	qqbot := ensureChildMap(channels, "qqbot")
+	delete(qqbot, "dmPolicy")
 	qqbot["enabled"] = config.Enabled
 	qqbot["allowFrom"] = []string{"*"}
 	qqbot["appId"] = strings.TrimSpace(config.AppID)
@@ -539,7 +548,8 @@ func setQQBotConfig(conf map[string]interface{}, config dto.AgentQQBotConfig) {
 
 	plugins := ensureChildMap(conf, "plugins")
 	entries := ensureChildMap(plugins, "entries")
-	qqbotEntry := ensureChildMap(entries, "qqbot")
+	delete(entries, "qqbot")
+	qqbotEntry := ensureChildMap(entries, "openclaw-qqbot")
 	qqbotEntry["enabled"] = config.Enabled
 }
 
@@ -568,10 +578,19 @@ func appendPluginAllow(conf map[string]interface{}, pluginID string) {
 	plugins["allow"] = append(allow, pluginID)
 }
 
+func buildOpenclawPluginInstallScript(spec, pluginID string) string {
+	return fmt.Sprintf(
+		"set -e; workdir=%s/%s; rm -rf \"$workdir\"; mkdir -p \"$workdir\"; cd \"$workdir\"; npm pack --silent %q >/dev/null 2>&1; pkg=$(find \"$workdir\" -maxdepth 1 -type f -name '*.tgz' | head -n 1); printf '%%s\\n' \"$pkg\"; openclaw plugins install \"$pkg\"; rm -rf \"$workdir\"",
+		openclawPluginPackageTmpDir,
+		pluginID,
+		spec,
+	)
+}
+
 func resolvePluginMeta(pluginType string) (string, string, error) {
 	switch pluginType {
 	case "qqbot":
-		return "@sliverp/qqbot@latest", "qqbot", nil
+		return "@tencent-connect/openclaw-qqbot@latest", "openclaw-qqbot", nil
 	case "wecom":
 		return "@wecom/wecom-openclaw-plugin", "wecom-openclaw-plugin", nil
 	case "dingtalk":

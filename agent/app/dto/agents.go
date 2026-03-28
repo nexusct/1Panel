@@ -69,6 +69,28 @@ type AgentModelConfigUpdateReq struct {
 	Model     string `json:"model" validate:"required"`
 }
 
+type AgentOverviewReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentIDReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentOverview struct {
+	Snapshot AgentOverviewSnapshot `json:"snapshot"`
+}
+
+type AgentOverviewSnapshot struct {
+	ContainerStatus string `json:"containerStatus"`
+	AppVersion      string `json:"appVersion"`
+	DefaultModel    string `json:"defaultModel"`
+	ChannelCount    int    `json:"channelCount"`
+	SkillCount      int    `json:"skillCount"`
+	JobCount        int    `json:"jobCount"`
+	SessionCount    int    `json:"sessionCount"`
+}
+
 type AgentAccountModel struct {
 	RecordID      uint     `json:"recordId"`
 	ID            string   `json:"id"`
@@ -219,10 +241,6 @@ type AgentChannelPairingApproveReq struct {
 	PairingCode string `json:"pairingCode" validate:"required"`
 }
 
-type AgentWecomConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
-}
-
 type AgentWecomConfigUpdateReq struct {
 	AgentID  uint   `json:"agentId" validate:"required"`
 	Enabled  bool   `json:"enabled"`
@@ -237,10 +255,6 @@ type AgentWecomConfig struct {
 	BotID     string `json:"botId"`
 	Secret    string `json:"secret"`
 	Installed bool   `json:"installed"`
-}
-
-type AgentDingTalkConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
 }
 
 type AgentDingTalkConfigUpdateReq struct {
@@ -268,10 +282,6 @@ type AgentDingTalkConfig struct {
 type AgentWeixinLoginReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
 	TaskID  string `json:"taskID" validate:"required"`
-}
-
-type AgentQQBotConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
 }
 
 type AgentQQBotConfigUpdateReq struct {
@@ -303,10 +313,6 @@ type AgentPluginStatus struct {
 	Installed bool `json:"installed"`
 }
 
-type AgentDiscordConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
-}
-
 type AgentDiscordConfigUpdateReq struct {
 	AgentID     uint   `json:"agentId" validate:"required"`
 	Enabled     bool   `json:"enabled"`
@@ -324,10 +330,6 @@ type AgentDiscordConfig struct {
 	Proxy       string `json:"proxy"`
 }
 
-type AgentSecurityConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
-}
-
 type AgentSecurityConfigUpdateReq struct {
 	AgentID        uint     `json:"agentId" validate:"required"`
 	AllowedOrigins []string `json:"allowedOrigins"`
@@ -337,17 +339,65 @@ type AgentSecurityConfig struct {
 	AllowedOrigins []string `json:"allowedOrigins"`
 }
 
-type AgentOtherConfigReq struct {
-	AgentID uint `json:"agentId" validate:"required"`
-}
-
 type AgentOtherConfigUpdateReq struct {
 	AgentID        uint   `json:"agentId" validate:"required"`
 	UserTimezone   string `json:"userTimezone" validate:"required"`
 	BrowserEnabled bool   `json:"browserEnabled"`
+	NPMRegistry    string `json:"npmRegistry" validate:"required"`
 }
 
 type AgentOtherConfig struct {
 	UserTimezone   string `json:"userTimezone"`
 	BrowserEnabled bool   `json:"browserEnabled"`
+	NPMRegistry    string `json:"npmRegistry"`
+}
+
+type AgentConfigFileReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentConfigFileUpdateReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Content string `json:"content" validate:"required"`
+}
+
+type AgentConfigFile struct {
+	Content string `json:"content"`
+}
+
+type AgentSkillSearchReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Source  string `json:"source" validate:"required,oneof=clawhub skillhub"`
+	Keyword string `json:"keyword" validate:"required"`
+}
+
+type AgentSkillItem struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Source      string `json:"source"`
+	Bundled     bool   `json:"bundled"`
+	Disabled    bool   `json:"disabled"`
+}
+
+type AgentSkillSearchItem struct {
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Summary     string `json:"summary"`
+	Version     string `json:"version"`
+	Source      string `json:"source"`
+	Score       string `json:"score"`
+}
+
+type AgentSkillUpdateReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Name    string `json:"name" validate:"required"`
+	Enabled bool   `json:"enabled"`
+}
+
+type AgentSkillInstallReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Source  string `json:"source" validate:"required,oneof=clawhub skillhub"`
+	Slug    string `json:"slug" validate:"required"`
+	TaskID  string `json:"taskID" validate:"required"`
 }
