@@ -43,6 +43,7 @@ chmod 755 1pctl install.sh
 SCRIPT_DIR="$(dirname "$0")"
 for installer in \
     install_ai_tools.sh \
+    install_bluehost.sh \
     install_odoo.sh \
     install_shopify.sh \
     install_contentful.sh \
