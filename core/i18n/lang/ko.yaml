@@ -236,6 +236,18 @@ UserInfoPassHelp: "팁: 비밀번호를 변경하려면 다음 명령어를 실�
 DBConnErr: "오류: 데이터베이스 연결 초기화 실패 {{ .err }}"
 SystemVersion: "버전: "
 SystemMode: "모드: "
+PanelInfo: "1Panel 상태 정보 표시"
+PanelInfoTitle: "1Panel 상태 정보"
+PanelInfoUsername: "사용자명: "
+PanelInfoSSL: "SSL: "
+PanelInfoMFA: "MFA: "
+PanelInfoEntrance: "보안 입구: "
+PanelInfoAllowIPs: "허가된 IP: "
+PanelInfoDomain: "도메인 바인딩: "
+PanelInfoListenMode: "수신 모드: "
+PanelInfoEnabled: "활성화"
+PanelInfoDisabled: "비활성화"
+PanelInfoNotSet: "설정되지 않음"
 
 #mobile app
 ErrVerifyToken: '토큰 검증 오류가 발생했습니다. 재설정 후 다시 스캔해 주세요.'

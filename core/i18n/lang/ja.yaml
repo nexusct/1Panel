@@ -237,8 +237,18 @@ UserInfoPassHelp: "ヒント: パスワードを変更するには、コマン�
 DBConnErr: "エラー: データベース接続の初期化に失敗しました、{{ .err }}"
 SystemVersion: "バージョン: "
 SystemMode: "モード: "
-
-#mobile app
+PanelInfo: "1Panelのステータス情報を表示します"
+PanelInfoTitle: "1Panel ステータス情報"
+PanelInfoUsername: "ユーザー名: "
+PanelInfoSSL: "SSL: "
+PanelInfoMFA: "MFA: "
+PanelInfoEntrance: "セキュリティ入口: "
+PanelInfoAllowIPs: "許可 IP: "
+PanelInfoDomain: "ドメイン設定: "
+PanelInfoListenMode: "リッスンモード: "
+PanelInfoEnabled: "有効"
+PanelInfoDisabled: "無効"
+PanelInfoNotSet: "未設定"
 ErrVerifyToken: 'トークンの検証エラーです。リセット後、再度QRコードをスキャンしてください。'
 ErrInvalidToken: '無効なトークンです。リセット後、再度QRコードをスキャンしてください。'
 ErrExpiredToken: 'トークンの有効期限が切れました。リセット後、再度QRコードをスキャンしてください。'

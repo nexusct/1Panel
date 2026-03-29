@@ -242,6 +242,18 @@ UserInfoPassHelp: "Tip: To change the password, you can execute the command: "
 DBConnErr: "Error: Failed to initialize database connection, {{ .err }}"
 SystemVersion: "version: "
 SystemMode: "mode: "
+PanelInfo: "Show 1Panel status information"
+PanelInfoTitle: "1Panel Status Information"
+PanelInfoUsername: "Username: "
+PanelInfoSSL: "SSL: "
+PanelInfoMFA: "MFA: "
+PanelInfoEntrance: "Security Entrance: "
+PanelInfoAllowIPs: "Authorized IPs: "
+PanelInfoDomain: "Domain Binding: "
+PanelInfoListenMode: "Listen Mode: "
+PanelInfoEnabled: "Enabled"
+PanelInfoDisabled: "Disabled"
+PanelInfoNotSet: "Not set"
 
 #mobile app
 ErrVerifyToken: 'Token verification failed. Reset and scan again.'

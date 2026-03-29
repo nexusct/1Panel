@@ -235,8 +235,18 @@ UserInfoPassHelp: "Подсказка: для изменения пароля м
 DBConnErr: "Ошибка: не удалось инициализировать соединение с базой данных, {{ .err }}"
 SystemVersion: "Версия:"
 SystemMode: "Режим:"
-
-#mobile app
+PanelInfo: "Показать информацию о статусе 1Panel"
+PanelInfoTitle: "Информация о статусе 1Panel"
+PanelInfoUsername: "Имя пользователя:"
+PanelInfoSSL: "SSL:"
+PanelInfoMFA: "MFA:"
+PanelInfoEntrance: "Безопасный вход:"
+PanelInfoAllowIPs: "Разрешённые IP:"
+PanelInfoDomain: "Привязка домена:"
+PanelInfoListenMode: "Режим прослушивания:"
+PanelInfoEnabled: "Включено"
+PanelInfoDisabled: "Отключено"
+PanelInfoNotSet: "Не задано"
 ErrVerifyToken: 'шибка проверки токена, пожалуйста, сбросьте и отсканируйте снова.'
 ErrInvalidToken: 'Неверный токен, пожалуйста, сбросьте и отсканируйте снова.'
 ErrExpiredToken: 'Токен истек, пожалуйста, сбросьте и отсканируйте снова.'

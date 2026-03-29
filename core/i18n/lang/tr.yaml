@@ -235,6 +235,18 @@ UserInfoPassHelp: "İpucu: Şifreyi değiştirmek için komutu çalıştırabili
 DBConnErr: "Hata: Veritabanı bağlantısını başlatma başarısız, {{ .err }}"
 SystemVersion: "sürüm: "
 SystemMode: "mod: "
+PanelInfo: "1Panel durum bilgisini göster"
+PanelInfoTitle: "1Panel Durum Bilgisi"
+PanelInfoUsername: "Kullanıcı Adı: "
+PanelInfoSSL: "SSL: "
+PanelInfoMFA: "MFA: "
+PanelInfoEntrance: "Güvenlik Girişi: "
+PanelInfoAllowIPs: "Yetkili IP'ler: "
+PanelInfoDomain: "Alan Adı Bağlama: "
+PanelInfoListenMode: "Dinleme Modu: "
+PanelInfoEnabled: "Etkin"
+PanelInfoDisabled: "Devre Dışı"
+PanelInfoNotSet: "Ayarlanmadı"
 
 #mobile app
 ErrVerifyToken: 'Token doğrulama hatası, lütfen sıfırlayın ve tekrar tarayın.'

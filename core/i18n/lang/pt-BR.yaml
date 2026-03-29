@@ -236,6 +236,18 @@ UserInfoPassHelp: "Dica: Para alterar a senha, você pode executar o comando: "
 DBConnErr: "Erro: Falha ao inicializar a conexão com o banco de dados, {{ .err }}"
 SystemVersion: "versão: "
 SystemMode: "modo: "
+PanelInfo: "Mostrar informações de status do 1Panel"
+PanelInfoTitle: "Informações de Status do 1Panel"
+PanelInfoUsername: "Usuário: "
+PanelInfoSSL: "SSL: "
+PanelInfoMFA: "MFA: "
+PanelInfoEntrance: "Entrada Segura: "
+PanelInfoAllowIPs: "IPs Autorizados: "
+PanelInfoDomain: "Domínio Vinculado: "
+PanelInfoListenMode: "Modo de Escuta: "
+PanelInfoEnabled: "Habilitado"
+PanelInfoDisabled: "Desabilitado"
+PanelInfoNotSet: "Não definido"
 
 #mobile app
 ErrVerifyToken: 'Erro de verificação do token, por favor, reinicie e escaneie novamente.'
