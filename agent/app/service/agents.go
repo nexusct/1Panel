@@ -29,6 +29,7 @@ type IAgentService interface {
 	Page(req dto.SearchWithPage) (int64, []dto.AgentItem, error)
 	Delete(req dto.AgentDeleteReq) error
 	ResetToken(req dto.AgentTokenResetReq) error
+	UpdateRemark(req dto.AgentRemarkUpdateReq) error
 	UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error
 	GetOverview(req dto.AgentOverviewReq) (*dto.AgentOverview, error)
 	GetProviders() ([]dto.ProviderInfo, error)
@@ -42,6 +43,13 @@ type IAgentService interface {
 	SearchSkills(req dto.AgentSkillSearchReq) ([]dto.AgentSkillSearchItem, error)
 	UpdateSkill(req dto.AgentSkillUpdateReq) error
 	InstallSkill(req dto.AgentSkillInstallReq) error
+
+	CreateRole(req dto.AgentRoleCreateReq) (*dto.AgentRoleCreateResp, error)
+	DeleteRole(req dto.AgentRoleDeleteReq) error
+	GetConfiguredAgents(req dto.AgentConfiguredAgentsReq) ([]dto.AgentConfiguredAgentItem, error)
+	GetRoleChannels(req dto.AgentRoleChannelsReq) ([]dto.AgentRoleChannelItem, error)
+	GetRoleMarkdownFiles(req dto.AgentRoleMarkdownFilesReq) ([]dto.AgentRoleMarkdownFileItem, error)
+	UpdateRoleMarkdownFiles(req dto.AgentRoleMarkdownFilesUpdateReq) error
 
 	CreateAccount(req dto.AgentAccountCreateReq) error
 	UpdateAccount(req dto.AgentAccountUpdateReq) error
@@ -68,6 +76,8 @@ type IAgentService interface {
 	GetQQBotConfig(req dto.AgentIDReq) (*dto.AgentQQBotConfig, error)
 	UpdateQQBotConfig(req dto.AgentQQBotConfigUpdateReq) error
 	InstallPlugin(req dto.AgentPluginInstallReq) error
+	UpgradePlugin(req dto.AgentPluginUpgradeReq) error
+	UninstallPlugin(req dto.AgentPluginUninstallReq) error
 	CheckPlugin(req dto.AgentPluginCheckReq) (*dto.AgentPluginStatus, error)
 	ApproveChannelPairing(req dto.AgentChannelPairingApproveReq) error
 }
@@ -234,6 +244,7 @@ func (a AgentService) Create(req dto.AgentCreateReq) (*dto.AgentItem, error) {
 	}
 	agent := &model.Agent{
 		Name:          req.Name,
+		Remark:        req.Remark,
 		AgentType:     agentType,
 		Provider:      provider,
 		Model:         storedModel,
@@ -320,6 +331,15 @@ func (a AgentService) ResetToken(req dto.AgentTokenResetReq) error {
 		return err
 	}
 	agent.Token = newToken
+	return agentRepo.Save(agent)
+}
+
+func (a AgentService) UpdateRemark(req dto.AgentRemarkUpdateReq) error {
+	agent, err := agentRepo.GetFirst(repo.WithByID(req.ID))
+	if err != nil {
+		return err
+	}
+	agent.Remark = req.Remark
 	return agentRepo.Save(agent)
 }
 
@@ -753,7 +773,7 @@ func (a AgentService) UpdateConfigFile(req dto.AgentConfigFileUpdateReq) error {
 }
 
 func getOpenclawNPMRegistry(containerName string) (string, error) {
-	registry, err := cmd.RunDefaultWithStdoutBashCfAndTimeOut("docker exec %s npm get registry", 20*time.Second, containerName)
+	registry, err := runDockerExecWithStdout(20*time.Second, containerName, "npm", "get", "registry")
 	if err != nil {
 		return "", err
 	}

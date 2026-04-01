@@ -19,6 +19,7 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/buserr"
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
+	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 	"github.com/1Panel-dev/1Panel/agent/utils/common"
 	"github.com/1Panel-dev/1Panel/agent/utils/files"
 	"github.com/1Panel-dev/1Panel/agent/utils/req_helper"
@@ -57,6 +58,11 @@ func ensureContainerRunning(containerName string) error {
 		return fmt.Errorf("container %s is not running, please check and retry", containerName)
 	}
 	return nil
+}
+
+func runDockerExecWithStdout(timeout time.Duration, containerName string, args ...string) (string, error) {
+	commandArgs := append([]string{"exec", containerName}, args...)
+	return cmd.NewCommandMgr(cmd.WithTimeout(timeout)).RunWithStdout("docker", commandArgs...)
 }
 
 func resolveAgentAccountInput(provider, apiKey, baseURL string) (resolvedAgentAccountInput, error) {
@@ -340,6 +346,7 @@ func buildAgentItem(agent *model.Agent, appInstall *model.AppInstall, envMap map
 	item := dto.AgentItem{
 		ID:            agent.ID,
 		Name:          agent.Name,
+		Remark:        agent.Remark,
 		AgentType:     agentType,
 		Provider:      agent.Provider,
 		ProviderName:  providercatalog.DisplayName(agent.Provider),

@@ -238,6 +238,7 @@ export namespace AI {
 
     export interface AgentCreateReq {
         name: string;
+        remark: string;
         appVersion: string;
         webUIPort: number;
         bridgePort?: number;
@@ -263,6 +264,7 @@ export namespace AI {
     export interface AgentItem {
         id: number;
         name: string;
+        remark: string;
         agentType: 'openclaw' | 'copaw';
         provider: string;
         providerName: string;
@@ -297,6 +299,11 @@ export namespace AI {
         id: number;
     }
 
+    export interface AgentRemarkUpdateReq {
+        id: number;
+        remark: string;
+    }
+
     export interface AgentModelConfigUpdateReq {
         agentId: number;
         accountId: number;
@@ -305,6 +312,72 @@ export namespace AI {
 
     export interface AgentOverviewReq {
         agentId: number;
+    }
+
+    export interface AgentRoleCreateReq {
+        agentId: number;
+        name: string;
+        model: string;
+        bindings: AgentRoleBinding[];
+    }
+
+    export interface AgentRoleBinding {
+        channel: string;
+        accountId: string;
+    }
+
+    export interface AgentRoleCreateResp {
+        output: string;
+    }
+
+    export interface AgentRoleDeleteReq {
+        agentId: number;
+        id: string;
+    }
+
+    export interface AgentConfiguredAgentsReq {
+        agentId: number;
+    }
+
+    export interface AgentRoleChannelsReq {
+        agentId: number;
+    }
+
+    export interface AgentRoleChannelItem {
+        name: string;
+        bound: boolean;
+        accountIds: string[];
+    }
+
+    export interface AgentRoleMarkdownFilesReq {
+        agentId: number;
+        workspace: string;
+    }
+
+    export interface AgentConfiguredAgentItem {
+        id: string;
+        name: string;
+        workspace: string;
+        model: string;
+        agentDir: string;
+        bindings: AgentRoleBinding[];
+    }
+
+    export interface AgentRoleMarkdownFileItem {
+        name: string;
+        content: string;
+    }
+
+    export interface AgentRoleMarkdownFileUpdateItem {
+        name: string;
+        content: string;
+    }
+
+    export interface AgentRoleMarkdownFilesUpdateReq {
+        agentId: number;
+        workspace: string;
+        restart: boolean;
+        files: AgentRoleMarkdownFileUpdateItem[];
     }
 
     export interface AgentOverviewSnapshot {
@@ -424,21 +497,42 @@ export namespace AI {
         agentId: number;
     }
 
-    export interface AgentFeishuConfig {
+    export interface AgentChannelBotBase {
+        accountId: string;
+        name: string;
         enabled: boolean;
-        dmPolicy: string;
-        botName: string;
+        isDefault: boolean;
+    }
+
+    export interface AgentFeishuBot extends AgentChannelBotBase {
         appId: string;
         appSecret: string;
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        allowFrom: string[];
+    }
+
+    export interface AgentFeishuConfig {
+        enabled: boolean;
+        threadSession: boolean;
+        replyMode: string;
+        streaming: boolean;
+        requireMention: 'true' | 'false' | 'open';
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
+        bots: AgentFeishuBot[];
+        installed: boolean;
     }
 
     export interface AgentFeishuConfigUpdateReq {
         agentId: number;
         enabled: boolean;
-        dmPolicy: string;
-        botName: string;
-        appId: string;
-        appSecret: string;
+        threadSession: boolean;
+        replyMode: string;
+        streaming: boolean;
+        requireMention: 'true' | 'false' | 'open';
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
+        bots: AgentFeishuBot[];
     }
 
     export interface AgentFeishuPairingApproveReq {
@@ -452,23 +546,41 @@ export namespace AI {
 
     export interface AgentTelegramConfig {
         enabled: boolean;
-        dmPolicy: string;
-        botToken: string;
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
         proxy: string;
+        streaming: 'off' | 'partial' | 'block' | 'progress';
+        defaultAccount: string;
+        bots: AgentTelegramBot[];
     }
 
     export interface AgentTelegramConfigUpdateReq {
         agentId: number;
         enabled: boolean;
-        dmPolicy: string;
-        botToken: string;
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
         proxy: string;
+        streaming: 'off' | 'partial' | 'block' | 'progress';
+        defaultAccount: string;
+        bots: AgentTelegramBot[];
     }
 
     export interface AgentChannelPairingApproveReq {
         agentId: number;
-        type: 'feishu' | 'telegram' | 'discord' | 'wecom' | 'dingtalk-connector';
+        type: 'feishu' | 'telegram' | 'discord' | 'wecom';
         pairingCode: string;
+        accountId?: string;
+    }
+
+    export interface AgentTelegramBot extends AgentChannelBotBase {
+        botToken: string;
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        streaming: 'off' | 'partial' | 'block' | 'progress';
     }
 
     export interface AgentWecomConfigReq {
@@ -477,7 +589,10 @@ export namespace AI {
 
     export interface AgentWecomConfig {
         enabled: boolean;
-        dmPolicy: 'pairing' | 'open';
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
         botId: string;
         secret: string;
         installed: boolean;
@@ -486,7 +601,10 @@ export namespace AI {
     export interface AgentWecomConfigUpdateReq {
         agentId: number;
         enabled: boolean;
-        dmPolicy: 'pairing' | 'open';
+        dmPolicy: 'pairing' | 'open' | 'allowlist' | 'disabled';
+        allowFrom: string[];
+        groupPolicy: 'open' | 'allowlist' | 'disabled';
+        groupAllowFrom: string[];
         botId: string;
         secret: string;
     }
@@ -497,24 +615,32 @@ export namespace AI {
 
     export interface AgentDingTalkConfig {
         enabled: boolean;
-        clientId: string;
-        clientSecret: string;
-        dmPolicy: 'pairing' | 'allowlist' | 'open' | 'disabled';
+        dmPolicy: 'allowlist' | 'open' | 'disabled';
         allowFrom: string[];
         groupPolicy: 'open' | 'allowlist' | 'disabled';
         groupAllowFrom: string[];
+        separateSessionByConversation: boolean;
+        groupSessionScope: 'group' | 'group_sender';
+        sharedMemoryAcrossConversations: boolean;
+        asyncMode: boolean;
+        ackText: string;
+        bots: AgentDingTalkBot[];
         installed: boolean;
     }
 
     export interface AgentDingTalkConfigUpdateReq {
         agentId: number;
         enabled: boolean;
-        clientId: string;
-        clientSecret: string;
-        dmPolicy: 'pairing' | 'allowlist' | 'open' | 'disabled';
+        dmPolicy: 'allowlist' | 'open' | 'disabled';
         allowFrom: string[];
         groupPolicy: 'open' | 'allowlist' | 'disabled';
         groupAllowFrom: string[];
+        separateSessionByConversation: boolean;
+        groupSessionScope: 'group' | 'group_sender';
+        sharedMemoryAcrossConversations: boolean;
+        asyncMode: boolean;
+        ackText: string;
+        bots: AgentDingTalkBot[];
     }
 
     export interface AgentWeixinLoginReq {
@@ -528,31 +654,45 @@ export namespace AI {
 
     export interface AgentQQBotConfig {
         enabled: boolean;
-        appId: string;
-        clientSecret: string;
+        bots: AgentQQBotBot[];
         installed: boolean;
     }
 
     export interface AgentQQBotConfigUpdateReq {
         agentId: number;
         enabled: boolean;
-        appId: string;
-        clientSecret: string;
+        bots: AgentQQBotBot[];
     }
 
     export interface AgentPluginInstallReq {
         agentId: number;
-        type: 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
+        type: 'feishu' | 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
+        taskID: string;
+    }
+
+    export interface AgentPluginUpgradeReq {
+        agentId: number;
+        type: 'feishu' | 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
+        taskID: string;
+    }
+
+    export interface AgentPluginUninstallReq {
+        agentId: number;
+        type: 'feishu' | 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
         taskID: string;
     }
 
     export interface AgentPluginCheckReq {
         agentId: number;
-        type: 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
+        type: 'feishu' | 'qqbot' | 'wecom' | 'dingtalk' | 'weixin';
+        checkLatest?: boolean;
     }
 
     export interface AgentPluginStatus {
         installed: boolean;
+        currentVersion: string;
+        latestVersion: string;
+        upgradable: boolean;
     }
 
     export interface AgentDiscordConfigReq {
@@ -563,8 +703,9 @@ export namespace AI {
         enabled: boolean;
         dmPolicy: string;
         groupPolicy: string;
-        token: string;
         proxy: string;
+        defaultAccount: string;
+        bots: AgentDiscordBot[];
     }
 
     export interface AgentDiscordConfigUpdateReq {
@@ -572,8 +713,25 @@ export namespace AI {
         enabled: boolean;
         dmPolicy: string;
         groupPolicy: string;
-        token: string;
         proxy: string;
+        defaultAccount: string;
+        bots: AgentDiscordBot[];
+    }
+
+    export interface AgentDiscordBot extends AgentChannelBotBase {
+        token: string;
+    }
+
+    export interface AgentQQBotBot extends AgentChannelBotBase {
+        appId: string;
+        clientSecret: string;
+        allowFrom: string[];
+        systemPrompt: string;
+    }
+
+    export interface AgentDingTalkBot extends AgentChannelBotBase {
+        clientId: string;
+        clientSecret: string;
     }
 
     export interface AgentSecurityConfigReq {

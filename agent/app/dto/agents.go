@@ -4,6 +4,7 @@ import "time"
 
 type AgentCreateReq struct {
 	Name           string   `json:"name" validate:"required"`
+	Remark         string   `json:"remark"`
 	AppVersion     string   `json:"appVersion" validate:"required"`
 	WebUIPort      int      `json:"webUIPort" validate:"required"`
 	BridgePort     int      `json:"bridgePort"`
@@ -29,6 +30,7 @@ type AgentCreateReq struct {
 type AgentItem struct {
 	ID            uint      `json:"id"`
 	Name          string    `json:"name"`
+	Remark        string    `json:"remark"`
 	AgentType     string    `json:"agentType"`
 	Provider      string    `json:"provider"`
 	ProviderName  string    `json:"providerName"`
@@ -63,6 +65,11 @@ type AgentTokenResetReq struct {
 	ID uint `json:"id" validate:"required"`
 }
 
+type AgentRemarkUpdateReq struct {
+	ID     uint   `json:"id" validate:"required"`
+	Remark string `json:"remark"`
+}
+
 type AgentModelConfigUpdateReq struct {
 	AgentID   uint   `json:"agentId" validate:"required"`
 	AccountID uint   `json:"accountId" validate:"required"`
@@ -79,6 +86,72 @@ type AgentIDReq struct {
 
 type AgentOverview struct {
 	Snapshot AgentOverviewSnapshot `json:"snapshot"`
+}
+
+type AgentRoleBinding struct {
+	Channel   string `json:"channel" validate:"required"`
+	AccountID string `json:"accountId"`
+}
+
+type AgentRoleCreateReq struct {
+	AgentID  uint               `json:"agentId" validate:"required"`
+	Name     string             `json:"name" validate:"required"`
+	Model    string             `json:"model"`
+	Bindings []AgentRoleBinding `json:"bindings"`
+}
+
+type AgentRoleCreateResp struct {
+	Output string `json:"output"`
+}
+
+type AgentRoleDeleteReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	ID      string `json:"id" validate:"required"`
+}
+
+type AgentConfiguredAgentsReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentRoleChannelsReq struct {
+	AgentID uint `json:"agentId" validate:"required"`
+}
+
+type AgentRoleChannelItem struct {
+	Name       string   `json:"name"`
+	Bound      bool     `json:"bound"`
+	AccountIDs []string `json:"accountIds"`
+}
+
+type AgentRoleMarkdownFilesReq struct {
+	AgentID   uint   `json:"agentId" validate:"required"`
+	Workspace string `json:"workspace" validate:"required"`
+}
+
+type AgentConfiguredAgentItem struct {
+	ID        string             `json:"id"`
+	Name      string             `json:"name"`
+	Workspace string             `json:"workspace"`
+	Model     string             `json:"model"`
+	AgentDir  string             `json:"agentDir"`
+	Bindings  []AgentRoleBinding `json:"bindings"`
+}
+
+type AgentRoleMarkdownFileItem struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type AgentRoleMarkdownFileUpdateItem struct {
+	Name    string `json:"name" validate:"required,oneof=AGENTS.md SOUL.md USER.md IDENTITY.md TOOLS.md HEARTBEAT.md BOOT.md BOOTSTRAP.md"`
+	Content string `json:"content"`
+}
+
+type AgentRoleMarkdownFilesUpdateReq struct {
+	AgentID   uint                              `json:"agentId" validate:"required"`
+	Workspace string                            `json:"workspace" validate:"required"`
+	Restart   bool                              `json:"restart"`
+	Files     []AgentRoleMarkdownFileUpdateItem `json:"files" validate:"required"`
 }
 
 type AgentOverviewSnapshot struct {
@@ -195,12 +268,15 @@ type AgentFeishuConfigReq struct {
 }
 
 type AgentFeishuConfigUpdateReq struct {
-	AgentID   uint   `json:"agentId" validate:"required"`
-	BotName   string `json:"botName" validate:"required"`
-	AppID     string `json:"appId" validate:"required"`
-	AppSecret string `json:"appSecret" validate:"required"`
-	Enabled   bool   `json:"enabled"`
-	DmPolicy  string `json:"dmPolicy" validate:"required"`
+	AgentID        uint             `json:"agentId" validate:"required"`
+	Enabled        bool             `json:"enabled"`
+	ThreadSession  bool             `json:"threadSession"`
+	ReplyMode      string           `json:"replyMode" validate:"required"`
+	Streaming      bool             `json:"streaming"`
+	RequireMention string           `json:"requireMention" validate:"required,oneof=true false open"`
+	GroupPolicy    string           `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
+	GroupAllowFrom []string         `json:"groupAllowFrom"`
+	Bots           []AgentFeishuBot `json:"bots" validate:"required,min=1"`
 }
 
 type AgentFeishuPairingApproveReq struct {
@@ -209,11 +285,15 @@ type AgentFeishuPairingApproveReq struct {
 }
 
 type AgentFeishuConfig struct {
-	Enabled   bool   `json:"enabled"`
-	DmPolicy  string `json:"dmPolicy"`
-	BotName   string `json:"botName"`
-	AppID     string `json:"appId"`
-	AppSecret string `json:"appSecret"`
+	Enabled        bool             `json:"enabled"`
+	ThreadSession  bool             `json:"threadSession"`
+	ReplyMode      string           `json:"replyMode"`
+	Streaming      bool             `json:"streaming"`
+	RequireMention string           `json:"requireMention"`
+	GroupPolicy    string           `json:"groupPolicy"`
+	GroupAllowFrom []string         `json:"groupAllowFrom"`
+	Bots           []AgentFeishuBot `json:"bots"`
+	Installed      bool             `json:"installed"`
 }
 
 type AgentTelegramConfigReq struct {
@@ -221,62 +301,87 @@ type AgentTelegramConfigReq struct {
 }
 
 type AgentTelegramConfigUpdateReq struct {
-	AgentID  uint   `json:"agentId" validate:"required"`
-	Enabled  bool   `json:"enabled"`
-	DmPolicy string `json:"dmPolicy" validate:"required"`
-	BotToken string `json:"botToken" validate:"required"`
-	Proxy    string `json:"proxy"`
+	AgentID        uint               `json:"agentId" validate:"required"`
+	Enabled        bool               `json:"enabled"`
+	DmPolicy       string             `json:"dmPolicy" validate:"required,oneof=pairing open allowlist disabled"`
+	AllowFrom      []string           `json:"allowFrom"`
+	GroupPolicy    string             `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
+	GroupAllowFrom []string           `json:"groupAllowFrom"`
+	Proxy          string             `json:"proxy"`
+	Streaming      string             `json:"streaming" validate:"required,oneof=off partial block progress"`
+	DefaultAccount string             `json:"defaultAccount" validate:"required"`
+	Bots           []AgentTelegramBot `json:"bots" validate:"required,min=1"`
 }
 
 type AgentTelegramConfig struct {
-	Enabled  bool   `json:"enabled"`
-	DmPolicy string `json:"dmPolicy"`
-	BotToken string `json:"botToken"`
-	Proxy    string `json:"proxy"`
+	Enabled        bool               `json:"enabled"`
+	DmPolicy       string             `json:"dmPolicy"`
+	AllowFrom      []string           `json:"allowFrom"`
+	GroupPolicy    string             `json:"groupPolicy"`
+	GroupAllowFrom []string           `json:"groupAllowFrom"`
+	Proxy          string             `json:"proxy"`
+	Streaming      string             `json:"streaming"`
+	DefaultAccount string             `json:"defaultAccount"`
+	Bots           []AgentTelegramBot `json:"bots"`
 }
 
 type AgentChannelPairingApproveReq struct {
 	AgentID     uint   `json:"agentId" validate:"required"`
-	Type        string `json:"type" validate:"required,oneof=feishu telegram discord wecom dingtalk-connector"`
+	Type        string `json:"type" validate:"required,oneof=feishu telegram discord wecom"`
 	PairingCode string `json:"pairingCode" validate:"required"`
+	AccountID   string `json:"accountId"`
 }
 
 type AgentWecomConfigUpdateReq struct {
-	AgentID  uint   `json:"agentId" validate:"required"`
-	Enabled  bool   `json:"enabled"`
-	DmPolicy string `json:"dmPolicy" validate:"required,oneof=pairing open"`
-	BotID    string `json:"botId" validate:"required"`
-	Secret   string `json:"secret" validate:"required"`
-}
-
-type AgentWecomConfig struct {
-	Enabled   bool   `json:"enabled"`
-	DmPolicy  string `json:"dmPolicy"`
-	BotID     string `json:"botId"`
-	Secret    string `json:"secret"`
-	Installed bool   `json:"installed"`
-}
-
-type AgentDingTalkConfigUpdateReq struct {
 	AgentID        uint     `json:"agentId" validate:"required"`
 	Enabled        bool     `json:"enabled"`
-	ClientID       string   `json:"clientId" validate:"required"`
-	ClientSecret   string   `json:"clientSecret" validate:"required"`
-	DmPolicy       string   `json:"dmPolicy" validate:"required,oneof=pairing allowlist open disabled"`
+	DmPolicy       string   `json:"dmPolicy" validate:"required,oneof=pairing open allowlist disabled"`
 	AllowFrom      []string `json:"allowFrom"`
 	GroupPolicy    string   `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
 	GroupAllowFrom []string `json:"groupAllowFrom"`
+	BotID          string   `json:"botId" validate:"required"`
+	Secret         string   `json:"secret" validate:"required"`
 }
 
-type AgentDingTalkConfig struct {
+type AgentWecomConfig struct {
 	Enabled        bool     `json:"enabled"`
-	ClientID       string   `json:"clientId"`
-	ClientSecret   string   `json:"clientSecret"`
 	DmPolicy       string   `json:"dmPolicy"`
 	AllowFrom      []string `json:"allowFrom"`
 	GroupPolicy    string   `json:"groupPolicy"`
 	GroupAllowFrom []string `json:"groupAllowFrom"`
+	BotID          string   `json:"botId"`
+	Secret         string   `json:"secret"`
 	Installed      bool     `json:"installed"`
+}
+
+type AgentDingTalkConfigUpdateReq struct {
+	AgentID                         uint               `json:"agentId" validate:"required"`
+	Enabled                         bool               `json:"enabled"`
+	DmPolicy                        string             `json:"dmPolicy" validate:"required,oneof=allowlist open disabled"`
+	AllowFrom                       []string           `json:"allowFrom"`
+	GroupPolicy                     string             `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
+	GroupAllowFrom                  []string           `json:"groupAllowFrom"`
+	SeparateSessionByConversation   bool               `json:"separateSessionByConversation"`
+	GroupSessionScope               string             `json:"groupSessionScope" validate:"required,oneof=group group_sender"`
+	SharedMemoryAcrossConversations bool               `json:"sharedMemoryAcrossConversations"`
+	AsyncMode                       bool               `json:"asyncMode"`
+	AckText                         string             `json:"ackText"`
+	Bots                            []AgentDingTalkBot `json:"bots" validate:"required,min=1"`
+}
+
+type AgentDingTalkConfig struct {
+	Enabled                         bool               `json:"enabled"`
+	DmPolicy                        string             `json:"dmPolicy"`
+	AllowFrom                       []string           `json:"allowFrom"`
+	GroupPolicy                     string             `json:"groupPolicy"`
+	GroupAllowFrom                  []string           `json:"groupAllowFrom"`
+	SeparateSessionByConversation   bool               `json:"separateSessionByConversation"`
+	GroupSessionScope               string             `json:"groupSessionScope"`
+	SharedMemoryAcrossConversations bool               `json:"sharedMemoryAcrossConversations"`
+	AsyncMode                       bool               `json:"asyncMode"`
+	AckText                         string             `json:"ackText"`
+	Bots                            []AgentDingTalkBot `json:"bots"`
+	Installed                       bool               `json:"installed"`
 }
 
 type AgentWeixinLoginReq struct {
@@ -285,49 +390,107 @@ type AgentWeixinLoginReq struct {
 }
 
 type AgentQQBotConfigUpdateReq struct {
-	AgentID      uint   `json:"agentId" validate:"required"`
-	Enabled      bool   `json:"enabled"`
-	AppID        string `json:"appId" validate:"required"`
-	ClientSecret string `json:"clientSecret" validate:"required"`
+	AgentID uint            `json:"agentId" validate:"required"`
+	Enabled bool            `json:"enabled"`
+	Bots    []AgentQQBotBot `json:"bots" validate:"required,min=1"`
 }
 
 type AgentQQBotConfig struct {
-	Enabled      bool   `json:"enabled"`
-	AppID        string `json:"appId"`
-	ClientSecret string `json:"clientSecret"`
-	Installed    bool   `json:"installed"`
+	Enabled   bool            `json:"enabled"`
+	Bots      []AgentQQBotBot `json:"bots"`
+	Installed bool            `json:"installed"`
 }
 
 type AgentPluginInstallReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
-	Type    string `json:"type" validate:"required,oneof=qqbot wecom dingtalk weixin"`
+	Type    string `json:"type" validate:"required,oneof=feishu qqbot wecom dingtalk weixin"`
+	TaskID  string `json:"taskID" validate:"required"`
+}
+
+type AgentPluginUpgradeReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Type    string `json:"type" validate:"required,oneof=feishu qqbot wecom dingtalk weixin"`
+	TaskID  string `json:"taskID" validate:"required"`
+}
+
+type AgentPluginUninstallReq struct {
+	AgentID uint   `json:"agentId" validate:"required"`
+	Type    string `json:"type" validate:"required,oneof=feishu qqbot wecom dingtalk weixin"`
 	TaskID  string `json:"taskID" validate:"required"`
 }
 
 type AgentPluginCheckReq struct {
-	AgentID uint   `json:"agentId" validate:"required"`
-	Type    string `json:"type" validate:"required,oneof=qqbot wecom dingtalk weixin"`
+	AgentID     uint   `json:"agentId" validate:"required"`
+	Type        string `json:"type" validate:"required,oneof=feishu qqbot wecom dingtalk weixin"`
+	CheckLatest bool   `json:"checkLatest"`
 }
 
 type AgentPluginStatus struct {
-	Installed bool `json:"installed"`
+	Installed      bool   `json:"installed"`
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	Upgradable     bool   `json:"upgradable"`
 }
 
 type AgentDiscordConfigUpdateReq struct {
-	AgentID     uint   `json:"agentId" validate:"required"`
-	Enabled     bool   `json:"enabled"`
-	DmPolicy    string `json:"dmPolicy" validate:"required"`
-	GroupPolicy string `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
-	Token       string `json:"token" validate:"required"`
-	Proxy       string `json:"proxy"`
+	AgentID        uint              `json:"agentId" validate:"required"`
+	Enabled        bool              `json:"enabled"`
+	DmPolicy       string            `json:"dmPolicy" validate:"required"`
+	GroupPolicy    string            `json:"groupPolicy" validate:"required,oneof=open allowlist disabled"`
+	Proxy          string            `json:"proxy"`
+	DefaultAccount string            `json:"defaultAccount" validate:"required"`
+	Bots           []AgentDiscordBot `json:"bots" validate:"required,min=1"`
 }
 
 type AgentDiscordConfig struct {
-	Enabled     bool   `json:"enabled"`
+	Enabled        bool              `json:"enabled"`
+	DmPolicy       string            `json:"dmPolicy"`
+	GroupPolicy    string            `json:"groupPolicy"`
+	Proxy          string            `json:"proxy"`
+	DefaultAccount string            `json:"defaultAccount"`
+	Bots           []AgentDiscordBot `json:"bots"`
+}
+
+type AgentChannelBotBase struct {
+	AccountID string `json:"accountId"`
+	Name      string `json:"name"`
+	Enabled   bool   `json:"enabled"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+type AgentFeishuBot struct {
+	AgentChannelBotBase
+	AppID     string   `json:"appId"`
+	AppSecret string   `json:"appSecret"`
+	DmPolicy  string   `json:"dmPolicy"`
+	AllowFrom []string `json:"allowFrom"`
+}
+
+type AgentTelegramBot struct {
+	AgentChannelBotBase
+	BotToken    string `json:"botToken"`
 	DmPolicy    string `json:"dmPolicy"`
 	GroupPolicy string `json:"groupPolicy"`
-	Token       string `json:"token"`
-	Proxy       string `json:"proxy"`
+	Streaming   string `json:"streaming"`
+}
+
+type AgentDiscordBot struct {
+	AgentChannelBotBase
+	Token string `json:"token"`
+}
+
+type AgentQQBotBot struct {
+	AgentChannelBotBase
+	AppID        string   `json:"appId"`
+	ClientSecret string   `json:"clientSecret"`
+	AllowFrom    []string `json:"allowFrom"`
+	SystemPrompt string   `json:"systemPrompt"`
+}
+
+type AgentDingTalkBot struct {
+	AgentChannelBotBase
+	ClientID     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
 }
 
 type AgentSecurityConfigUpdateReq struct {

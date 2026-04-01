@@ -109,12 +109,40 @@ export const resetAgentToken = (req: AI.AgentTokenResetReq) => {
     return http.post(`/ai/agents/token/reset`, req);
 };
 
+export const updateAgentRemark = (req: AI.AgentRemarkUpdateReq) => {
+    return http.post(`/ai/agents/remark`, req);
+};
+
 export const updateAgentModelConfig = (req: AI.AgentModelConfigUpdateReq) => {
     return http.post(`/ai/agents/model/update`, req);
 };
 
 export const getAgentOverview = (req: AI.AgentOverviewReq) => {
     return http.post<AI.AgentOverview>(`/ai/agents/overview`, req);
+};
+
+export const createAgentRole = (req: AI.AgentRoleCreateReq) => {
+    return http.post<AI.AgentRoleCreateResp>(`/ai/agents/agent/create`, req);
+};
+
+export const deleteAgentRole = (req: AI.AgentRoleDeleteReq) => {
+    return http.post(`/ai/agents/agent/delete`, req);
+};
+
+export const getConfiguredAgentRoles = (req: AI.AgentConfiguredAgentsReq) => {
+    return http.post<AI.AgentConfiguredAgentItem[]>(`/ai/agents/agent/list`, req);
+};
+
+export const getAgentRoleChannels = (req: AI.AgentRoleChannelsReq) => {
+    return http.post<AI.AgentRoleChannelItem[]>(`/ai/agents/agent/channels`, req);
+};
+
+export const getAgentRoleMarkdownFiles = (req: AI.AgentRoleMarkdownFilesReq) => {
+    return http.post<AI.AgentRoleMarkdownFileItem[]>(`/ai/agents/agent/md/list`, req);
+};
+
+export const updateAgentRoleMarkdownFile = (req: AI.AgentRoleMarkdownFilesUpdateReq) => {
+    return http.post(`/ai/agents/agent/md/update`, req);
 };
 
 export const getAgentProviders = () => {
@@ -211,6 +239,14 @@ export const updateAgentQQBotConfig = (req: AI.AgentQQBotConfigUpdateReq) => {
 
 export const installAgentPlugin = (req: AI.AgentPluginInstallReq) => {
     return http.post(`/ai/agents/plugin/install`, req);
+};
+
+export const upgradeAgentPlugin = (req: AI.AgentPluginUpgradeReq) => {
+    return http.post(`/ai/agents/plugin/upgrade`, req);
+};
+
+export const uninstallAgentPlugin = (req: AI.AgentPluginUninstallReq) => {
+    return http.post(`/ai/agents/plugin/uninstall`, req);
 };
 
 export const checkAgentPlugin = (req: AI.AgentPluginCheckReq) => {
