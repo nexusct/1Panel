@@ -13,6 +13,9 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
 )
 
+const clawhubGlobalRegistry = "https://clawhub.com"
+const clawhubChinaRegistry = "https://mirror-cn.clawhub.com"
+
 type openclawSkillsList struct {
 	Skills []openclawSkillListItem `json:"skills"`
 }
@@ -45,7 +48,7 @@ func (a AgentService) ListSkills(req dto.AgentIDReq) ([]dto.AgentSkillItem, erro
 	if err := ensureContainerRunning(install.ContainerName); err != nil {
 		return nil, err
 	}
-	output, err := runDockerExecWithStdout(30*time.Second, install.ContainerName, "sh", "-c", "openclaw skills list --json 2>&1")
+	output, err := runDockerExecWithStdout(60*time.Second, install.ContainerName, "sh", "-c", "openclaw skills list --json 2>&1")
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +77,7 @@ func (a AgentService) SearchSkills(req dto.AgentSkillSearchReq) ([]dto.AgentSkil
 	case "skillhub":
 		return parseSkillhubSearchResult(output)
 	default:
-		return parseClawhubSearchResult(output), nil
+		return parseClawhubSearchResult(output, req.Source), nil
 	}
 }
 
@@ -111,7 +114,7 @@ func (a AgentService) InstallSkill(req dto.AgentSkillInstallReq) error {
 		return err
 	}
 	installTask.AddSubTask("Install OpenClaw skill", func(t *task.Task) error {
-		mgr := cmd.NewCommandMgr(cmd.WithTask(*t), cmd.WithContext(t.TaskCtx), cmd.WithTimeout(10*time.Minute))
+		mgr := cmd.NewCommandMgr(cmd.WithTask(*t), cmd.WithContext(t.TaskCtx), cmd.WithTimeout(20*time.Minute))
 		return mgr.Run("docker", "exec", install.ContainerName, "sh", "-c", buildOpenclawSkillInstallCommand(req.Source, req.Slug))
 	}, nil)
 	go func() {
@@ -150,9 +153,15 @@ func parseOpenclawSkillsList(output string) ([]dto.AgentSkillItem, error) {
 func loadOpenclawSkillSearchOutput(containerName, source, keyword string) (string, error) {
 	switch source {
 	case "skillhub":
-		return runDockerExecWithStdout(30*time.Second, containerName, "skillhub", "search", keyword, "--json")
+		return runDockerExecWithStdout(60*time.Second, containerName, "skillhub", "search", keyword, "--json")
 	default:
-		return runDockerExecWithStdout(30*time.Second, containerName, "clawhub", "search", keyword)
+		return runDockerExecWithStdout(
+			60*time.Second,
+			containerName,
+			"sh",
+			"-c",
+			fmt.Sprintf("CLAWHUB_REGISTRY=%q clawhub search %q", resolveClawhubRegistry(source), keyword),
+		)
 	}
 }
 
@@ -182,7 +191,7 @@ func parseSkillhubSearchResult(output string) ([]dto.AgentSkillSearchItem, error
 	return items, nil
 }
 
-func parseClawhubSearchResult(output string) []dto.AgentSkillSearchItem {
+func parseClawhubSearchResult(output, source string) []dto.AgentSkillSearchItem {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	items := make([]dto.AgentSkillSearchItem, 0, len(lines))
 	for _, line := range lines {
@@ -194,7 +203,7 @@ func parseClawhubSearchResult(output string) []dto.AgentSkillSearchItem {
 			Slug:   matches[1],
 			Name:   matches[2],
 			Score:  matches[3],
-			Source: "clawhub",
+			Source: source,
 		})
 	}
 	return items
@@ -202,10 +211,11 @@ func parseClawhubSearchResult(output string) []dto.AgentSkillSearchItem {
 
 func buildOpenclawSkillInstallCommand(source, slug string) string {
 	switch source {
-	case "clawhub":
+	case "clawhub-global", "clawhub-cn":
 		return fmt.Sprintf(
-			"mkdir -p %s && clawhub --workdir /home/node/.openclaw --dir skills install %q",
+			"mkdir -p %s && CLAWHUB_REGISTRY=%q clawhub --workdir /home/node/.openclaw --dir skills install %q",
 			openclawManagedSkillsDir,
+			resolveClawhubRegistry(source),
 			slug,
 		)
 	default:
@@ -218,8 +228,17 @@ func buildOpenclawSkillInstallCommand(source, slug string) string {
 	}
 }
 
+func resolveClawhubRegistry(source string) string {
+	switch source {
+	case "clawhub-cn":
+		return clawhubChinaRegistry
+	default:
+		return clawhubGlobalRegistry
+	}
+}
+
 func getOpenclawSkillKey(containerName, name string) (string, error) {
-	output, err := runDockerExecWithStdout(30*time.Second, containerName, "sh", "-c", fmt.Sprintf("openclaw skills info %q --json 2>&1", name))
+	output, err := runDockerExecWithStdout(60*time.Second, containerName, "sh", "-c", fmt.Sprintf("openclaw skills info %q --json 2>&1", name))
 	if err != nil {
 		return "", err
 	}

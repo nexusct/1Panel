@@ -51,6 +51,7 @@ var AddTable = &gormigrate.Migration{
 			&model.DatabaseMysql{},
 			&model.DatabasePostgresql{},
 			&model.Favorite{},
+			&model.FileShare{},
 			&model.Firewall{},
 			&model.Host{},
 			&model.Ftp{},
@@ -1156,5 +1157,71 @@ var AddAgentRemarkColumn = &gormigrate.Migration{
 	ID: "20260330-add-agent-remark-column",
 	Migrate: func(tx *gorm.DB) error {
 		return tx.AutoMigrate(&model.Agent{})
+	},
+}
+
+var AddAgentWebsiteBinding = &gormigrate.Migration{
+	ID: "20260403-add-agent-website-binding",
+	Migrate: func(tx *gorm.DB) error {
+		if err := tx.AutoMigrate(&model.Agent{}); err != nil {
+			return err
+		}
+
+		var agents []model.Agent
+		if err := tx.Find(&agents).Error; err != nil {
+			return err
+		}
+		if len(agents) == 0 {
+			return nil
+		}
+
+		var websites []model.Website
+		if err := tx.Where("type = ? AND app_install_id > 0", constant.Deployment).Find(&websites).Error; err != nil {
+			return err
+		}
+		websiteMap := service.UniqueDeploymentWebsiteMapForMigration(websites)
+		for _, agent := range agents {
+			if agent.WebsiteID != 0 || agent.AppInstallID == 0 {
+				continue
+			}
+			website, ok := websiteMap[agent.AppInstallID]
+			if !ok {
+				continue
+			}
+			if err := tx.Model(&model.Agent{}).Where("id = ?", agent.ID).Update("website_id", website.ID).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	},
+}
+
+var AddFileManageAISettings = &gormigrate.Migration{
+	ID: "20260330-add-file-manage-ai-settings",
+	Migrate: func(tx *gorm.DB) error {
+		rows := []model.Setting{
+			{Key: "FileAIStatus", Value: constant.StatusDisable},
+			{Key: "FileAIAccountID", Value: ""},
+		}
+		for i := range rows {
+			var exist model.Setting
+			if err := tx.Where("`key` = ?", rows[i].Key).First(&exist).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					if err := tx.Create(&rows[i]).Error; err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
+			}
+		}
+		return nil
+	},
+}
+
+var AddFileShareTable = &gormigrate.Migration{
+	ID: "20260407-add-file-share-table",
+	Migrate: func(tx *gorm.DB) error {
+		return tx.AutoMigrate(&model.FileShare{})
 	},
 }

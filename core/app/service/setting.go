@@ -719,15 +719,19 @@ func (u *SettingService) GetAppstoreConfig() (*dto.AppstoreConfig, error) {
 	res := &dto.AppstoreConfig{}
 	res.UninstallDeleteImage, _ = settingRepo.GetValueByKey("UninstallDeleteImage")
 	if res.UninstallDeleteImage == "" {
-		res.UninstallDeleteImage = "False"
+		res.UninstallDeleteImage = constant.StatusDisable
 	}
 	res.UpgradeBackup, _ = settingRepo.GetValueByKey("UpgradeBackup")
 	if res.UpgradeBackup == "" {
-		res.UpgradeBackup = "False"
+		res.UpgradeBackup = constant.StatusDisable
 	}
 	res.UninstallDeleteBackup, _ = settingRepo.GetValueByKey("UninstallDeleteBackup")
 	if res.UninstallDeleteBackup == "" {
-		res.UninstallDeleteBackup = "False"
+		res.UninstallDeleteBackup = constant.StatusDisable
+	}
+	res.InstallAllowPort, _ = settingRepo.GetValueByKey("InstallAllowPort")
+	if res.InstallAllowPort == "" {
+		res.InstallAllowPort = constant.StatusDisable
 	}
 	return res, nil
 }
@@ -777,6 +781,7 @@ func checkProxy(req dto.ProxyUpdate) error {
 		}
 		transport = http.Transport{DialContext: dialContext}
 	case "", "close":
+		return nil
 	default:
 		return buserr.WithDetail("ErrNotSupportType", req.ProxyType, nil)
 	}

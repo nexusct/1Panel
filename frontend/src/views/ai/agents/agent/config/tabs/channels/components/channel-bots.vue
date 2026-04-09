@@ -10,7 +10,7 @@
             <el-table-column :label="t('commons.table.name')" min-width="140">
                 <template #default="{ row }">
                     <div class="channel-bots__name">
-                        <span>{{ row.name }}</span>
+                        <span>{{ row.name || row.accountId }}</span>
                         <el-tag v-if="row.isDefault" type="success" size="small">
                             {{ t('commons.table.default') }}
                         </el-tag>
@@ -32,51 +32,60 @@
                     />
                 </template>
             </el-table-column>
-            <el-table-column :label="t('commons.table.operate')" min-width="320" fixed="right">
+            <el-table-column :label="t('commons.table.operate')" width="180" fixed="right">
                 <template #default="{ row, $index }">
                     <div class="channel-bots__actions">
                         <el-button link type="primary" :disabled="disabled" @click="openEdit(row, $index)">
                             {{ t('commons.button.edit') }}
                         </el-button>
                         <el-button
-                            v-if="defaultable && !row.isDefault"
-                            link
-                            type="primary"
-                            :disabled="disabled || isBotActionDisabled(row)"
-                            @click="setDefault(row.accountId)"
-                        >
-                            {{ t('aiTools.agents.setDefaultBot') }}
-                        </el-button>
-                        <el-button
-                            v-if="approvable"
-                            link
-                            type="primary"
-                            :disabled="
-                                disabled ||
-                                !row.enabled ||
-                                isBotActionDisabled(row) ||
-                                (approveDisabled ? approveDisabled(row) : false)
-                            "
-                            @click="emit('approve', row)"
-                        >
-                            {{ t('aiTools.agents.approvePairing') }}
-                        </el-button>
-                        <el-button
-                            link
-                            type="primary"
                             :disabled="disabled || undeletableAccountIds.includes(row.accountId)"
+                            link
+                            type="primary"
                             @click="removeBot($index)"
                         >
                             {{ t('commons.button.delete') }}
                         </el-button>
+                        <el-dropdown
+                            v-if="hasMoreActions(row)"
+                            trigger="hover"
+                            @command="handleMoreCommand(row, $index, $event)"
+                        >
+                            <el-button link type="primary" :disabled="disabled">
+                                {{ t('tabs.more') }}
+                            </el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item
+                                        v-if="defaultable && !row.isDefault"
+                                        command="default"
+                                        :disabled="disabled || isBotActionDisabled(row)"
+                                    >
+                                        {{ t('aiTools.agents.setDefaultBot') }}
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="approvable"
+                                        command="approve"
+                                        :disabled="
+                                            disabled ||
+                                            !row.enabled ||
+                                            isBotActionDisabled(row) ||
+                                            (approveDisabled ? approveDisabled(row) : false)
+                                        "
+                                    >
+                                        {{ t('aiTools.agents.approvePairing') }}
+                                    </el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </div>
                 </template>
             </el-table-column>
         </el-table>
 
-        <el-dialog v-model="dialogVisible" width="520px" :title="dialogTitle" destroy-on-close>
+        <DialogPro v-model="dialogVisible" :title="dialogTitle">
             <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-                <el-form-item :label="t('commons.table.name')" prop="name">
+                <el-form-item v-if="showNameField" :label="t('commons.table.name')" prop="name">
                     <el-input v-model="form.name" :disabled="disabled" />
                 </el-form-item>
                 <el-form-item :label="t('aiTools.agents.accountId')" prop="accountId">
@@ -124,7 +133,7 @@
                     {{ t('commons.button.save') }}
                 </el-button>
             </template>
-        </el-dialog>
+        </DialogPro>
     </div>
 </template>
 
@@ -201,6 +210,10 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    showNameField: {
+        type: Boolean,
+        default: true,
+    },
     undeletableAccountIds: {
         type: Array as PropType<string[]>,
         default: () => [],
@@ -214,7 +227,7 @@ const props = defineProps({
 const emit = defineEmits<{
     (e: 'update:bots', bots: ChannelBotItem[]): void;
     (e: 'approve', bot: ChannelBotItem): void;
-    (e: 'save'): void;
+    (e: 'save', action?: 'delete' | 'save'): void;
 }>();
 
 const { t } = useI18n();
@@ -230,7 +243,6 @@ const dialogTitle = computed(() => (editIndex.value >= 0 ? t('commons.button.edi
 
 const rules = computed<FormRules>(() => {
     const config: FormRules = {
-        name: [Rules.requiredInput],
         accountId: [
             Rules.appName,
             {
@@ -248,6 +260,9 @@ const rules = computed<FormRules>(() => {
             },
         ],
     };
+    if (props.showNameField) {
+        config.name = [Rules.requiredInput];
+    }
     for (const field of props.fields) {
         if (!field.required) {
             continue;
@@ -276,6 +291,10 @@ const isBotActionDisabled = (bot: ChannelBotItem) => {
     return props.fields.some((field) => field.required && !bot[field.prop]);
 };
 
+const hasMoreActions = (bot: ChannelBotItem) => {
+    return (props.defaultable && !bot.isDefault) || props.approvable;
+};
+
 const openCreate = () => {
     editIndex.value = -1;
     editingAccountId.value = '';
@@ -296,17 +315,21 @@ const saveBot = async () => {
     }
     await formRef.value.validate();
     const nextBots = props.bots.map((bot) => ({ ...bot }));
+    const nextBot = { ...form };
+    if (!props.showNameField) {
+        nextBot.name = nextBot.accountId;
+    }
     if (editIndex.value >= 0) {
-        nextBots.splice(editIndex.value, 1, { ...form });
+        nextBots.splice(editIndex.value, 1, nextBot);
     } else {
         if (props.defaultable && nextBots.every((bot) => !bot.isDefault)) {
-            form.isDefault = true;
+            nextBot.isDefault = true;
         }
-        nextBots.push({ ...form });
+        nextBots.push(nextBot);
     }
     emitBots(nextBots);
     dialogVisible.value = false;
-    emit('save');
+    emit('save', 'save');
 };
 
 const removeBot = (index: number) => {
@@ -316,7 +339,7 @@ const removeBot = (index: number) => {
         return;
     }
     emitBots(nextBots);
-    emit('save');
+    emit('save', 'delete');
 };
 
 const setDefault = (accountId: string) => {
@@ -325,14 +348,24 @@ const setDefault = (accountId: string) => {
         isDefault: bot.accountId === accountId,
     }));
     emitBots(nextBots);
-    emit('save');
+    emit('save', 'save');
 };
 
 const updateEnabled = (index: number, enabled: boolean | string | number) => {
     const nextBots = props.bots.map((bot) => ({ ...bot }));
     nextBots[index].enabled = Boolean(enabled);
     emitBots(nextBots);
-    emit('save');
+    emit('save', 'save');
+};
+
+const handleMoreCommand = (bot: ChannelBotItem, _index: number, command: string | number | object) => {
+    if (command === 'default') {
+        setDefault(bot.accountId);
+        return;
+    }
+    if (command === 'approve') {
+        emit('approve', bot);
+    }
 };
 </script>
 
@@ -362,9 +395,8 @@ const updateEnabled = (index: number, enabled: boolean | string | number) => {
 
 .channel-bots__actions {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 6px 12px;
+    gap: 8px;
 
     :deep(.el-button) {
         margin-left: 0;

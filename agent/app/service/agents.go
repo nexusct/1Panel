@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,17 +20,22 @@ import (
 	"github.com/1Panel-dev/1Panel/agent/constant"
 	"github.com/1Panel-dev/1Panel/agent/global"
 	"github.com/1Panel-dev/1Panel/agent/utils/cmd"
+	"github.com/1Panel-dev/1Panel/agent/utils/docker"
 	terminalai "github.com/1Panel-dev/1Panel/agent/utils/terminal/ai"
 	"github.com/1Panel-dev/1Panel/agent/utils/xpack"
+	"github.com/docker/docker/api/types/container"
 	"gorm.io/gorm"
 )
 
 type IAgentService interface {
 	Create(req dto.AgentCreateReq) (*dto.AgentItem, error)
 	Page(req dto.SearchWithPage) (int64, []dto.AgentItem, error)
+	DeleteCheck(req dto.AgentIDReq) ([]dto.AppResource, error)
 	Delete(req dto.AgentDeleteReq) error
 	ResetToken(req dto.AgentTokenResetReq) error
 	UpdateRemark(req dto.AgentRemarkUpdateReq) error
+	BindWebsite(req dto.AgentWebsiteBindReq) error
+	GetModelConfig(req dto.AgentIDReq) (*dto.AgentModelConfig, error)
 	UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error
 	GetOverview(req dto.AgentOverviewReq) (*dto.AgentOverview, error)
 	GetProviders() ([]dto.ProviderInfo, error)
@@ -46,6 +52,8 @@ type IAgentService interface {
 
 	CreateRole(req dto.AgentRoleCreateReq) (*dto.AgentRoleCreateResp, error)
 	DeleteRole(req dto.AgentRoleDeleteReq) error
+	BindRole(req dto.AgentRoleBindReq) error
+	UnbindRole(req dto.AgentRoleBindReq) error
 	GetConfiguredAgents(req dto.AgentConfiguredAgentsReq) ([]dto.AgentConfiguredAgentItem, error)
 	GetRoleChannels(req dto.AgentRoleChannelsReq) ([]dto.AgentRoleChannelItem, error)
 	GetRoleMarkdownFiles(req dto.AgentRoleMarkdownFilesReq) ([]dto.AgentRoleMarkdownFileItem, error)
@@ -164,7 +172,7 @@ func (a AgentService) Create(req dto.AgentCreateReq) (*dto.AgentItem, error) {
 			return nil, buserr.New("ErrAgentAccountNotVerified")
 		}
 		provider = account.Provider
-		baseURL = strings.TrimSpace(account.BaseURL)
+		baseURL = account.BaseURL
 		resolvedRuntime, err := resolveOpenclawAccountModelRuntimeByID(account, req.Model)
 		if err != nil {
 			return nil, err
@@ -278,12 +286,21 @@ func (a AgentService) Page(req dto.SearchWithPage) (int64, []dto.AgentItem, erro
 		return 0, nil, err
 	}
 	items := make([]dto.AgentItem, 0, len(list))
+	appInstalls := make([]model.AppInstall, 0, len(list))
 	for _, item := range list {
 		appInstall, _ := appInstallRepo.GetFirst(repo.WithByID(item.AppInstallID))
+		appInstalls = append(appInstalls, appInstall)
+	}
+	syncAgentAppInstalls(appInstalls)
+	for index, item := range list {
+		appInstall := appInstalls[index]
 		envMap := readInstallEnv(appInstall.Env)
 		agentItem := buildAgentItem(&item, &appInstall, envMap)
 		agentItem.Upgradable = checkAgentUpgradable(appInstall)
 		items = append(items, agentItem)
+	}
+	if err := hydrateAgentWebsiteItems(items); err != nil {
+		return 0, nil, err
 	}
 	return count, items, nil
 }
@@ -292,6 +309,13 @@ func (a AgentService) Delete(req dto.AgentDeleteReq) error {
 	agent, err := agentRepo.GetFirst(repo.WithByID(req.ID))
 	if err != nil {
 		return err
+	}
+	resources, err := a.deleteCheckByAgent(agent)
+	if err != nil {
+		return err
+	}
+	if len(resources) > 0 {
+		return buserr.New("ErrAgentWebsiteBound")
 	}
 	if agent.AppInstallID == 0 {
 		return agentRepo.DeleteByID(agent.ID)
@@ -306,6 +330,58 @@ func (a AgentService) Delete(req dto.AgentDeleteReq) error {
 		return err
 	}
 	return nil
+}
+
+func (a AgentService) DeleteCheck(req dto.AgentIDReq) ([]dto.AppResource, error) {
+	agent, err := agentRepo.GetFirst(repo.WithByID(req.AgentID))
+	if err != nil {
+		return nil, err
+	}
+	return a.deleteCheckByAgent(agent)
+}
+
+func (a AgentService) deleteCheckByAgent(agent *model.Agent) ([]dto.AppResource, error) {
+	if agent == nil || agent.WebsiteID == 0 {
+		return nil, nil
+	}
+	website, err := websiteRepo.GetFirst(repo.WithByID(agent.WebsiteID))
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	websiteName, err := loadAgentWebsiteResourceName(website)
+	if err != nil {
+		return nil, err
+	}
+	return []dto.AppResource{{Type: "website", Name: websiteName}}, nil
+}
+
+func syncAgentAppInstalls(appInstalls []model.AppInstall) {
+	if len(appInstalls) == 0 {
+		return
+	}
+
+	var containersMap map[string]container.Summary
+	cli, err := docker.NewClient()
+	if err == nil {
+		defer cli.Close()
+		containers, err := cli.ListAllContainers()
+		if err == nil {
+			containersMap = make(map[string]container.Summary, len(containers))
+			for _, contain := range containers {
+				containersMap[contain.Names[0]] = contain
+			}
+		}
+	}
+
+	for index := range appInstalls {
+		if appInstalls[index].ID == 0 || doNotNeedSync(appInstalls[index]) {
+			continue
+		}
+		synAppInstall(containersMap, &appInstalls[index], false)
+	}
 }
 
 func (a AgentService) ResetToken(req dto.AgentTokenResetReq) error {
@@ -343,6 +419,30 @@ func (a AgentService) UpdateRemark(req dto.AgentRemarkUpdateReq) error {
 	return agentRepo.Save(agent)
 }
 
+func (a AgentService) GetModelConfig(req dto.AgentIDReq) (*dto.AgentModelConfig, error) {
+	agent, _, conf, err := a.loadOpenclawAgentConfig(req.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	account, err := agentAccountRepo.GetFirst(repo.WithByID(agent.AccountID))
+	if err != nil {
+		return nil, err
+	}
+	models, err := loadAgentAccountModels(account)
+	if err != nil {
+		return nil, err
+	}
+	model := extractOpenclawPrimaryModelID(conf, account, models)
+	if model == "" {
+		model = agent.Model
+	}
+	return &dto.AgentModelConfig{
+		AccountID: agent.AccountID,
+		Model:     model,
+		Fallbacks: extractOpenclawFallbackModelIDs(conf, account, models, model),
+	}, nil
+}
+
 func (a AgentService) UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error {
 	agent, err := loadOpenclawAgentByID(req.AgentID)
 	if err != nil {
@@ -359,7 +459,7 @@ func (a AgentService) UpdateModelConfig(req dto.AgentModelConfigUpdateReq) error
 	modelName := resolvedRuntime.StoredModel
 	apiType, maxTokens, contextWindow := resolvedRuntime.APIType, resolvedRuntime.MaxTokens, resolvedRuntime.ContextWindow
 	confDir := path.Dir(agent.ConfigPath)
-	if err := writeOpenclawConfig(confDir, account, modelName, agent.Token, nil); err != nil {
+	if err := writeOpenclawConfig(confDir, account, modelName, agent.Token, nil, req.Fallbacks); err != nil {
 		return err
 	}
 	agent.Provider = account.Provider
@@ -462,6 +562,7 @@ func (a AgentService) UpdateAccount(req dto.AgentAccountUpdateReq) error {
 		return err
 	}
 	terminalai.InvalidateTerminalRuntimeCache()
+	terminalai.InvalidateFileAIRuntimeCache()
 	if req.SyncAgents {
 		if err := a.syncAgentsByAccount(account); err != nil {
 			return err
@@ -602,6 +703,7 @@ func (a AgentService) UpdateAccountModel(req dto.AgentAccountModelUpdateReq) err
 		return err
 	}
 	terminalai.InvalidateTerminalRuntimeCache()
+	terminalai.InvalidateFileAIRuntimeCache()
 	return a.syncAgentsByAccount(account)
 }
 
@@ -634,6 +736,7 @@ func (a AgentService) DeleteAccountModel(req dto.AgentAccountModelDeleteReq) err
 		return err
 	}
 	terminalai.InvalidateTerminalRuntimeCache()
+	terminalai.InvalidateFileAIRuntimeCache()
 	return a.syncAgentsByAccount(account)
 }
 
@@ -653,10 +756,16 @@ func (a AgentService) DeleteAccount(req dto.AgentAccountDeleteReq) error {
 	if exists, _ := agentRepo.GetFirst(repo.WithByAccountID(req.ID)); exists != nil && exists.ID > 0 {
 		return buserr.New("ErrAgentAccountBound")
 	}
+	if aiStatus, _ := settingRepo.GetValueByKey("AIStatus"); strings.EqualFold(strings.TrimSpace(aiStatus), constant.StatusEnable) {
+		if aiAccountID, _ := settingRepo.GetValueByKey("AIAccountID"); strings.TrimSpace(aiAccountID) == strconv.FormatUint(uint64(req.ID), 10) {
+			return buserr.New("ErrTerminalAIAccountInUse")
+		}
+	}
 	if err := agentAccountModelRepo.Delete(repo.WithByAccountID(req.ID)); err != nil {
 		return err
 	}
 	terminalai.InvalidateTerminalRuntimeCache()
+	terminalai.InvalidateFileAIRuntimeCache()
 	return agentAccountRepo.DeleteByID(req.ID)
 }
 
@@ -860,7 +969,6 @@ func (a AgentService) syncAgentsByAccount(account *model.AgentAccount) error {
 	if len(accountModels) == 0 {
 		return nil
 	}
-	baseURL := resolveAccountBaseURL(account)
 	for _, agent := range agents {
 		confDir := path.Dir(agent.ConfigPath)
 		modelName := strings.TrimSpace(agent.Model)
@@ -873,16 +981,21 @@ func (a AgentService) syncAgentsByAccount(account *model.AgentAccount) error {
 		} else {
 			selectedAccountModel = accountModels[0]
 		}
+		conf, err := readOpenclawConfig(agent.ConfigPath)
+		if err != nil {
+			return err
+		}
+		fallbacks := extractOpenclawFallbackModelIDs(conf, account, accountModels, selectedAccountModel.ID)
 		resolvedRuntime, err := buildOpenclawAccountModelRuntime(account, selectedAccountModel)
 		if err != nil {
 			return err
 		}
 		modelName = resolvedRuntime.StoredModel
 		apiType, maxTokens, contextWindow := resolvedRuntime.APIType, resolvedRuntime.MaxTokens, resolvedRuntime.ContextWindow
-		if err := writeOpenclawConfig(confDir, account, modelName, agent.Token, nil); err != nil {
+		if err := writeOpenclawConfig(confDir, account, modelName, agent.Token, nil, fallbacks); err != nil {
 			return err
 		}
-		agent.BaseURL = baseURL
+		agent.BaseURL = account.BaseURL
 		agent.APIKey = account.APIKey
 		agent.Provider = account.Provider
 		agent.Model = modelName

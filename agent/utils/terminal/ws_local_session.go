@@ -8,6 +8,7 @@ import (
 
 	"github.com/1Panel-dev/1Panel/agent/global"
 	"github.com/1Panel-dev/1Panel/agent/i18n"
+	terminalai "github.com/1Panel-dev/1Panel/agent/utils/terminal/ai"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 )
@@ -20,6 +21,7 @@ type LocalWsSession struct {
 	writeMutex    sync.Mutex
 	lang          string
 	aiInterceptor *aiInputInterceptor
+	aiVersion     uint64
 }
 
 func NewLocalWsSession(cols, rows int, wsConn *websocket.Conn, slave *LocalCommand, allowCtrlC bool) (*LocalWsSession, error) {
@@ -35,6 +37,7 @@ func NewLocalWsSession(cols, rows int, wsConn *websocket.Conn, slave *LocalComma
 		allowCtrlC:    allowCtrlC,
 		lang:          lang,
 		aiInterceptor: newAIInputInterceptor("", lang),
+		aiVersion:     terminalai.CurrentTerminalRuntimeVersion(),
 	}, nil
 }
 
@@ -116,6 +119,7 @@ func (sws *LocalWsSession) receiveWsMsg(exitCh chan bool) {
 					global.LOG.Errorf("websock cmd string base64 decoding failed, err: %v", err)
 				}
 				if isEnterInput(decodeBytes) {
+					sws.ensureAIInterceptor()
 					if sws.aiInterceptor != nil {
 						sws.aiInterceptor.SetCurrentLine(msgObj.Line)
 					}
@@ -130,7 +134,9 @@ func (sws *LocalWsSession) receiveWsMsg(exitCh chan bool) {
 				}
 				sws.sendWebsocketInputCommandToSshSessionStdinPipe(decodeBytes)
 			case WsMsgHeartbeat:
+				sws.writeMutex.Lock()
 				err = wsConn.WriteMessage(websocket.TextMessage, wsData)
+				sws.writeMutex.Unlock()
 				if err != nil {
 					global.LOG.Errorf("ssh sending heartbeat to webSocket failed, err: %v", err)
 				}
@@ -139,11 +145,23 @@ func (sws *LocalWsSession) receiveWsMsg(exitCh chan bool) {
 	}
 }
 
+func (sws *LocalWsSession) ensureAIInterceptor() {
+	if sws == nil || sws.aiInterceptor != nil {
+		return
+	}
+	currentVersion := terminalai.CurrentTerminalRuntimeVersion()
+	if sws.aiVersion == currentVersion {
+		return
+	}
+	sws.aiVersion = currentVersion
+	sws.aiInterceptor = newAIInputInterceptor("", sws.lang)
+}
+
 func (sws *LocalWsSession) notifyAIThinking() {
 	if sws == nil {
 		return
 	}
-	if err := sws.masterWrite([]byte("\r\n" + i18n.GetMsgByKeyAndLang(sws.lang, "TerminalAIThinking") + "\r\n")); err != nil {
+	if err := sws.writeAINotice("info", i18n.GetMsgByKeyAndLang(sws.lang, "TerminalAIThinking")); err != nil {
 		global.LOG.Errorf("write terminal ai thinking message failed, err: %v", err)
 	}
 }
@@ -152,7 +170,7 @@ func (sws *LocalWsSession) notifyAIDone(message string) {
 	if sws == nil || strings.TrimSpace(message) == "" {
 		return
 	}
-	if err := sws.masterWrite([]byte(message + "\r\n")); err != nil {
+	if err := sws.writeAINotice("success", message); err != nil {
 		global.LOG.Errorf("write terminal ai done message failed, err: %v", err)
 	}
 }
@@ -161,9 +179,26 @@ func (sws *LocalWsSession) notifyAIError(message string) {
 	if sws == nil || strings.TrimSpace(message) == "" {
 		return
 	}
-	if err := sws.masterWrite([]byte(message + "\r\n")); err != nil {
+	if err := sws.writeAINotice("error", message); err != nil {
 		global.LOG.Errorf("write terminal ai error message failed, err: %v", err)
 	}
+}
+
+func (sws *LocalWsSession) writeAINotice(level, message string) error {
+	if sws == nil || strings.TrimSpace(message) == "" {
+		return nil
+	}
+	wsData, err := json.Marshal(WsMsg{
+		Type:    WsMsgAINotice,
+		Level:   strings.TrimSpace(level),
+		Message: strings.TrimSpace(message),
+	})
+	if err != nil {
+		return err
+	}
+	sws.writeMutex.Lock()
+	defer sws.writeMutex.Unlock()
+	return sws.wsConn.WriteMessage(websocket.TextMessage, wsData)
 }
 
 func (sws *LocalWsSession) sendWebsocketInputCommandToSshSessionStdinPipe(cmdBytes []byte) {

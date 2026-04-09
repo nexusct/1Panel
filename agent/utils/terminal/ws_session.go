@@ -11,6 +11,7 @@ import (
 
 	"github.com/1Panel-dev/1Panel/agent/global"
 	"github.com/1Panel-dev/1Panel/agent/i18n"
+	terminalai "github.com/1Panel-dev/1Panel/agent/utils/terminal/ai"
 	"github.com/gorilla/websocket"
 	"golang.org/x/crypto/ssh"
 )
@@ -40,12 +41,15 @@ const (
 	WsMsgCmd       = "cmd"
 	WsMsgResize    = "resize"
 	WsMsgHeartbeat = "heartbeat"
+	WsMsgAINotice  = "ai_notice"
 )
 
 type WsMsg struct {
 	Type      string `json:"type"`
 	Data      string `json:"data,omitempty"`      // WsMsgCmd
 	Line      string `json:"line,omitempty"`      // WsMsgCmd
+	Level     string `json:"level,omitempty"`     // WsMsgAINotice
+	Message   string `json:"message,omitempty"`   // WsMsgAINotice
 	Cols      int    `json:"cols,omitempty"`      // WsMsgResize
 	Rows      int    `json:"rows,omitempty"`      // WsMsgResize
 	Timestamp int    `json:"timestamp,omitempty"` // WsMsgHeartbeat
@@ -57,10 +61,12 @@ type LogicSshWsSession struct {
 	logBuff       *safeBuffer
 	session       *ssh.Session
 	wsConn        *websocket.Conn
+	writeMutex    sync.Mutex
 	lang          string
 	isAdmin       bool
 	IsFlagged     bool
 	aiInterceptor *aiInputInterceptor
+	aiVersion     uint64
 }
 
 func NewLogicSshWsSession(cols, rows int, sshClient *ssh.Client, wsConn *websocket.Conn, initCmd string) (*LogicSshWsSession, error) {
@@ -105,6 +111,7 @@ func NewLogicSshWsSession(cols, rows int, sshClient *ssh.Client, wsConn *websock
 		isAdmin:       true,
 		IsFlagged:     false,
 		aiInterceptor: newAIInputInterceptor("", lang),
+		aiVersion:     terminalai.CurrentTerminalRuntimeVersion(),
 	}, nil
 }
 
@@ -157,6 +164,7 @@ func (sws *LogicSshWsSession) receiveWsMsg(exitCh chan bool) {
 					global.LOG.Errorf("websock cmd string base64 decoding failed, err: %v", err)
 				}
 				if isEnterInput(decodeBytes) {
+					sws.ensureAIInterceptor()
 					if sws.aiInterceptor != nil {
 						sws.aiInterceptor.SetCurrentLine(msgObj.Line)
 					}
@@ -171,7 +179,7 @@ func (sws *LogicSshWsSession) receiveWsMsg(exitCh chan bool) {
 				}
 				sws.sendWebsocketInputCommandToSshSessionStdinPipe(decodeBytes)
 			case WsMsgHeartbeat:
-				err = wsConn.WriteMessage(websocket.TextMessage, wsData)
+				err = sws.writeWSMessage(websocket.TextMessage, wsData)
 				if err != nil {
 					global.LOG.Errorf("ssh sending heartbeat to webSocket failed, err: %v", err)
 				}
@@ -180,29 +188,41 @@ func (sws *LogicSshWsSession) receiveWsMsg(exitCh chan bool) {
 	}
 }
 
-func (sws *LogicSshWsSession) notifyAIThinking() {
-	if sws == nil || sws.comboOutput == nil {
+func (sws *LogicSshWsSession) ensureAIInterceptor() {
+	if sws == nil || sws.aiInterceptor != nil {
 		return
 	}
-	if _, err := sws.comboOutput.Write([]byte("\r\n" + i18n.GetMsgByKeyAndLang(sws.lang, "TerminalAIThinking") + "\r\n")); err != nil {
+	currentVersion := terminalai.CurrentTerminalRuntimeVersion()
+	if sws.aiVersion == currentVersion {
+		return
+	}
+	sws.aiVersion = currentVersion
+	sws.aiInterceptor = newAIInputInterceptor("", sws.lang)
+}
+
+func (sws *LogicSshWsSession) notifyAIThinking() {
+	if sws == nil {
+		return
+	}
+	if err := sws.writeAINotice("info", i18n.GetMsgByKeyAndLang(sws.lang, "TerminalAIThinking")); err != nil {
 		global.LOG.Errorf("write terminal ai thinking message failed, err: %v", err)
 	}
 }
 
 func (sws *LogicSshWsSession) notifyAIDone(message string) {
-	if sws == nil || sws.comboOutput == nil || strings.TrimSpace(message) == "" {
+	if sws == nil || strings.TrimSpace(message) == "" {
 		return
 	}
-	if _, err := sws.comboOutput.Write([]byte(message + "\r\n")); err != nil {
+	if err := sws.writeAINotice("success", message); err != nil {
 		global.LOG.Errorf("write terminal ai done message failed, err: %v", err)
 	}
 }
 
 func (sws *LogicSshWsSession) notifyAIError(message string) {
-	if sws == nil || sws.comboOutput == nil || strings.TrimSpace(message) == "" {
+	if sws == nil || strings.TrimSpace(message) == "" {
 		return
 	}
-	if _, err := sws.comboOutput.Write([]byte(message + "\r\n")); err != nil {
+	if err := sws.writeAINotice("error", message); err != nil {
 		global.LOG.Errorf("write terminal ai error message failed, err: %v", err)
 	}
 }
@@ -213,8 +233,28 @@ func (sws *LogicSshWsSession) sendWebsocketInputCommandToSshSessionStdinPipe(cmd
 	}
 }
 
+func (sws *LogicSshWsSession) writeAINotice(level, message string) error {
+	if sws == nil || strings.TrimSpace(message) == "" {
+		return nil
+	}
+	wsData, err := json.Marshal(WsMsg{
+		Type:    WsMsgAINotice,
+		Level:   strings.TrimSpace(level),
+		Message: strings.TrimSpace(message),
+	})
+	if err != nil {
+		return err
+	}
+	return sws.writeWSMessage(websocket.TextMessage, wsData)
+}
+
+func (sws *LogicSshWsSession) writeWSMessage(messageType int, data []byte) error {
+	sws.writeMutex.Lock()
+	defer sws.writeMutex.Unlock()
+	return sws.wsConn.WriteMessage(messageType, data)
+}
+
 func (sws *LogicSshWsSession) sendComboOutput(exitCh chan bool) {
-	wsConn := sws.wsConn
 	defer setQuit(exitCh)
 
 	tick := time.NewTicker(time.Millisecond * time.Duration(60))
@@ -235,7 +275,7 @@ func (sws *LogicSshWsSession) sendComboOutput(exitCh chan bool) {
 					global.LOG.Errorf("encoding combo output to json failed, err: %v", err)
 					continue
 				}
-				err = wsConn.WriteMessage(websocket.TextMessage, wsData)
+				err = sws.writeWSMessage(websocket.TextMessage, wsData)
 				if err != nil {
 					global.LOG.Errorf("ssh sending combo output to webSocket failed, err: %v", err)
 				}

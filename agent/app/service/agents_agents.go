@@ -23,20 +23,19 @@ func (a AgentService) CreateRole(req dto.AgentRoleCreateReq) (*dto.AgentRoleCrea
 		return nil, err
 	}
 
-	name := strings.TrimSpace(req.Name)
-	args := []string{"exec", install.ContainerName, "openclaw", "agents", "add", name}
-	workspace := "/home/node/.openclaw/workspace-agent_" + name
-	agentDir := "/home/node/.openclaw/agents/" + name
+	args := []string{"exec", install.ContainerName, "openclaw", "agents", "add", req.Name}
+	workspace := "/home/node/.openclaw/workspace-agent_" + req.Name
+	agentDir := "/home/node/.openclaw/agents/" + req.Name
 	args = append(args, "--workspace", workspace)
 	if model := strings.TrimSpace(req.Model); model != "" {
 		args = append(args, "--model", model)
 	}
 	for _, binding := range req.Bindings {
-		channel := strings.TrimSpace(binding.Channel)
+		channel := binding.Channel
 		if channel == "" {
 			continue
 		}
-		if accountID := strings.TrimSpace(binding.AccountID); accountID != "" {
+		if accountID := binding.AccountID; accountID != "" {
 			channel = channel + ":" + accountID
 		}
 		args = append(args, "--bind", channel)
@@ -91,18 +90,18 @@ func (a AgentService) GetRoleChannels(req dto.AgentRoleChannelsReq) ([]dto.Agent
 	if !ok || len(channels) == 0 {
 		return []dto.AgentRoleChannelItem{}, nil
 	}
-	boundChannels := loadBoundChannelSet(conf["bindings"])
+	boundBindings := loadBoundChannelBindings(conf["bindings"])
 	result := make([]dto.AgentRoleChannelItem, 0, len(channels))
 	for key := range channels {
-		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
-		channelConf, _ := channels[key].(map[string]interface{})
+		accountIDs := extractRoleChannelAccountIDs(conf, key)
+		availableAccountIDs := filterAvailableChannelAccountIDs(boundBindings, key, accountIDs)
 		result = append(result, dto.AgentRoleChannelItem{
 			Name:       key,
-			Bound:      boundChannels[key],
-			AccountIDs: extractChannelAccountIDs(channelConf),
+			Bound:      isRoleChannelFullyBound(boundBindings, key, accountIDs, availableAccountIDs),
+			AccountIDs: availableAccountIDs,
 		})
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -118,16 +117,15 @@ func (a AgentService) DeleteRole(req dto.AgentRoleDeleteReq) error {
 	}
 
 	baseDir := path.Join(global.Dir.AppInstallDir, agent.AgentType, agent.Name, "data")
-	roleID := strings.TrimSpace(req.ID)
-	if roleID == "" {
+	if req.ID == "" {
 		return buserr.New("ErrRecordNotFound")
 	}
-	target, ok := findConfiguredAgentByID(baseDir, conf, roleID)
+	target, ok := findConfiguredAgentByID(baseDir, conf, req.ID)
 	if !ok {
 		return buserr.New("ErrRecordNotFound")
 	}
 
-	args := []string{"exec", install.ContainerName, "openclaw", "agents", "delete", roleID, "--force"}
+	args := []string{"exec", install.ContainerName, "openclaw", "agents", "delete", req.ID, "--force"}
 
 	mgr := cmd.NewCommandMgr(cmd.WithTimeout(2 * time.Minute))
 	if _, err = mgr.RunWithStdout("docker", args...); err != nil {
@@ -144,6 +142,49 @@ func (a AgentService) DeleteRole(req dto.AgentRoleDeleteReq) error {
 		}
 	}
 	return nil
+}
+
+func (a AgentService) BindRole(req dto.AgentRoleBindReq) error {
+	return a.operateRoleBinding(req, "bind")
+}
+
+func (a AgentService) UnbindRole(req dto.AgentRoleBindReq) error {
+	return a.operateRoleBinding(req, "unbind")
+}
+
+func (a AgentService) operateRoleBinding(req dto.AgentRoleBindReq, action string) error {
+	agent, install, conf, err := a.loadAgentConfig(req.AgentID)
+	if err != nil {
+		return err
+	}
+
+	baseDir := path.Join(global.Dir.AppInstallDir, agent.AgentType, agent.Name, "data")
+	if req.ID == "" {
+		return buserr.New("ErrRecordNotFound")
+	}
+	if _, ok := findConfiguredAgentByID(baseDir, conf, req.ID); !ok {
+		return buserr.New("ErrRecordNotFound")
+	}
+
+	binding := formatRoleBinding(req.Channel, req.AccountID)
+	if binding == "" {
+		return buserr.New("ErrInvalidParams")
+	}
+	args := []string{
+		"exec",
+		install.ContainerName,
+		"openclaw",
+		"agents",
+		action,
+		"--agent",
+		req.ID,
+		"--bind",
+		binding,
+	}
+	args = append(args, "--json")
+	mgr := cmd.NewCommandMgr(cmd.WithTimeout(2 * time.Minute))
+	_, err = mgr.RunWithStdout("docker", args...)
+	return err
 }
 
 func (a AgentService) GetRoleMarkdownFiles(req dto.AgentRoleMarkdownFilesReq) ([]dto.AgentRoleMarkdownFileItem, error) {
@@ -206,23 +247,23 @@ func (a AgentService) UpdateRoleMarkdownFiles(req dto.AgentRoleMarkdownFilesUpda
 func extractConfiguredAgentItem(installDir string, record map[string]interface{}) dto.AgentConfiguredAgentItem {
 	item := dto.AgentConfiguredAgentItem{Bindings: []dto.AgentRoleBinding{}}
 	if id, ok := record["id"].(string); ok {
-		item.ID = strings.TrimSpace(id)
+		item.ID = id
 	} else if id, ok := record["agentId"].(string); ok {
-		item.ID = strings.TrimSpace(id)
+		item.ID = id
 	}
 	if name, ok := record["name"].(string); ok {
-		item.Name = strings.TrimSpace(name)
+		item.Name = name
 	}
 	if workspace, ok := record["workspace"].(string); ok {
-		item.Workspace = resolveRoleDir(installDir, strings.TrimSpace(workspace))
+		item.Workspace = resolveRoleDir(installDir, workspace)
 	}
 	if model, ok := record["model"].(string); ok {
-		item.Model = strings.TrimSpace(model)
+		item.Model = model
 	}
 	if agentDir, ok := record["agentDir"].(string); ok {
-		item.AgentDir = strings.TrimSpace(agentDir)
+		item.AgentDir = agentDir
 	} else if agentDir, ok := record["agent_dir"].(string); ok {
-		item.AgentDir = strings.TrimSpace(agentDir)
+		item.AgentDir = agentDir
 	}
 	item.AgentDir = resolveRoleDir(installDir, item.AgentDir)
 	return item
@@ -243,11 +284,21 @@ func findConfiguredAgentByID(baseDir string, conf map[string]interface{}, id str
 			continue
 		}
 		configured := extractConfiguredAgentItem(baseDir, record)
-		if strings.EqualFold(strings.TrimSpace(configured.ID), strings.TrimSpace(id)) {
+		if strings.EqualFold(configured.ID, id) {
 			return configured, true
 		}
 	}
 	return dto.AgentConfiguredAgentItem{}, false
+}
+
+func formatRoleBinding(channel, accountID string) string {
+	if channel == "" {
+		return ""
+	}
+	if accountID == "" {
+		return channel
+	}
+	return channel + ":" + accountID
 }
 
 func applyConfiguredAgentBindings(agents []dto.AgentConfiguredAgentItem, value interface{}) {
@@ -270,11 +321,10 @@ func applyConfiguredAgentBindings(agents []dto.AgentConfiguredAgentItem, value i
 		if !ok {
 			continue
 		}
-		if bindingType, _ := record["type"].(string); !strings.EqualFold(strings.TrimSpace(bindingType), "route") {
+		if bindingType, _ := record["type"].(string); !strings.EqualFold(bindingType, "route") {
 			continue
 		}
 		targetID, _ := record["agentId"].(string)
-		targetID = strings.TrimSpace(targetID)
 		if targetID == "" {
 			continue
 		}
@@ -283,7 +333,6 @@ func applyConfiguredAgentBindings(agents []dto.AgentConfiguredAgentItem, value i
 			continue
 		}
 		channel, _ := match["channel"].(string)
-		channel = strings.TrimSpace(channel)
 		if channel == "" {
 			continue
 		}
@@ -295,18 +344,18 @@ func applyConfiguredAgentBindings(agents []dto.AgentConfiguredAgentItem, value i
 			continue
 		}
 		accountID, _ := match["accountId"].(string)
-		if strings.TrimSpace(accountID) == "" {
+		if accountID == "" {
 			accountID, _ = record["accountId"].(string)
 		}
 		agents[index].Bindings = append(agents[index].Bindings, dto.AgentRoleBinding{
 			Channel:   channel,
-			AccountID: strings.TrimSpace(accountID),
+			AccountID: accountID,
 		})
 	}
 }
 
-func loadBoundChannelSet(value interface{}) map[string]bool {
-	result := make(map[string]bool)
+func loadBoundChannelBindings(value interface{}) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{})
 	bindings, ok := value.([]interface{})
 	if !ok {
 		return result
@@ -316,7 +365,7 @@ func loadBoundChannelSet(value interface{}) map[string]bool {
 		if !ok {
 			continue
 		}
-		if bindingType, _ := record["type"].(string); !strings.EqualFold(strings.TrimSpace(bindingType), "route") {
+		if bindingType, _ := record["type"].(string); !strings.EqualFold(bindingType, "route") {
 			continue
 		}
 		match, ok := record["match"].(map[string]interface{})
@@ -324,16 +373,113 @@ func loadBoundChannelSet(value interface{}) map[string]bool {
 			continue
 		}
 		channel, _ := match["channel"].(string)
-		channel = strings.TrimSpace(channel)
 		if channel == "" {
 			continue
 		}
-		result[channel] = true
+		accountID, _ := match["accountId"].(string)
+		if accountID == "" {
+			accountID, _ = record["accountId"].(string)
+		}
+		if _, ok := result[channel]; !ok {
+			result[channel] = make(map[string]struct{})
+		}
+		result[channel][accountID] = struct{}{}
 	}
 	return result
 }
 
-func extractChannelAccountIDs(channel map[string]interface{}) []string {
+func extractRoleChannelAccountIDs(conf map[string]interface{}, channel string) []string {
+	switch channel {
+	case "feishu":
+		config := extractFeishuConfig(conf)
+		accountIDs := make([]string, 0, len(config.Bots))
+		for _, item := range config.Bots {
+			if accountID := item.AccountID; accountID != "" {
+				accountIDs = append(accountIDs, accountID)
+			}
+		}
+		sort.Strings(accountIDs)
+		return accountIDs
+	case "telegram":
+		config := extractTelegramConfig(conf)
+		accountIDs := make([]string, 0, len(config.Bots))
+		for _, item := range config.Bots {
+			if accountID := item.AccountID; accountID != "" {
+				accountIDs = append(accountIDs, accountID)
+			}
+		}
+		sort.Strings(accountIDs)
+		return accountIDs
+	case "discord":
+		config := extractDiscordConfig(conf)
+		accountIDs := make([]string, 0, len(config.Bots))
+		for _, item := range config.Bots {
+			if accountID := item.AccountID; accountID != "" {
+				accountIDs = append(accountIDs, accountID)
+			}
+		}
+		sort.Strings(accountIDs)
+		return accountIDs
+	case "qqbot":
+		config := extractQQBotConfig(conf)
+		accountIDs := make([]string, 0, len(config.Bots))
+		for _, item := range config.Bots {
+			if accountID := item.AccountID; accountID != "" {
+				accountIDs = append(accountIDs, accountID)
+			}
+		}
+		sort.Strings(accountIDs)
+		return accountIDs
+	case "dingtalk-connector":
+		config := extractDingTalkConfig(conf)
+		accountIDs := make([]string, 0, len(config.Bots))
+		for _, item := range config.Bots {
+			if accountID := item.AccountID; accountID != "" {
+				accountIDs = append(accountIDs, accountID)
+			}
+		}
+		sort.Strings(accountIDs)
+		return accountIDs
+	case "wecom":
+		return []string{}
+	default:
+		return extractRawChannelAccountIDs(getChannelConfig(conf, channel))
+	}
+}
+
+func filterAvailableChannelAccountIDs(bindings map[string]map[string]struct{}, channel string, accountIDs []string) []string {
+	channelBindings, ok := bindings[channel]
+	if !ok || len(channelBindings) == 0 {
+		return append([]string(nil), accountIDs...)
+	}
+	if _, ok := channelBindings[""]; ok {
+		return []string{}
+	}
+	result := make([]string, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if _, ok := channelBindings[accountID]; ok {
+			continue
+		}
+		result = append(result, accountID)
+	}
+	return result
+}
+
+func isRoleChannelFullyBound(bindings map[string]map[string]struct{}, channel string, allAccountIDs, availableAccountIDs []string) bool {
+	channelBindings, ok := bindings[channel]
+	if !ok || len(channelBindings) == 0 {
+		return false
+	}
+	if _, ok := channelBindings[""]; ok {
+		return true
+	}
+	if len(allAccountIDs) == 0 {
+		return true
+	}
+	return len(availableAccountIDs) == 0
+}
+
+func extractRawChannelAccountIDs(channel map[string]interface{}) []string {
 	if len(channel) == 0 {
 		return []string{}
 	}
@@ -343,7 +489,6 @@ func extractChannelAccountIDs(channel map[string]interface{}) []string {
 	}
 	result := make([]string, 0, len(accounts))
 	for key := range accounts {
-		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
@@ -354,7 +499,6 @@ func extractChannelAccountIDs(channel map[string]interface{}) []string {
 }
 
 func resolveRoleDir(installDir, workspace string) string {
-	workspace = strings.TrimSpace(workspace)
 	if workspace == "" {
 		return ""
 	}
@@ -365,7 +509,6 @@ func resolveRoleDir(installDir, workspace string) string {
 }
 
 func resolveMarkdownWorkspaceDir(installDir, workspace string) (string, error) {
-	workspace = strings.TrimSpace(workspace)
 	if workspace == "" {
 		return "", buserr.New("ErrRecordNotFound")
 	}

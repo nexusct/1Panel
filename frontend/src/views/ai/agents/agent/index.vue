@@ -1,6 +1,6 @@
 <template>
     <div>
-        <RouterMenu />
+        <RouterButton :buttons="headerButtons" />
         <DockerStatus v-model:isActive="isActive" v-model:isExist="isExist" />
         <LayoutContent v-loading="loading" v-if="isExist" :class="{ mask: !isActive }">
             <template #leftToolBar>
@@ -101,6 +101,43 @@
                             </el-button>
                         </template>
                     </el-table-column>
+                    <el-table-column :label="$t('menu.website')" min-width="180" show-overflow-tooltip>
+                        <template #default="{ row }">
+                            <div v-if="row.websiteId > 0" class="website-link-cell">
+                                <el-text type="primary" class="cursor-pointer" @click="openWebsite(row)">
+                                    {{ getWebsiteDisplayName(row) }}
+                                </el-text>
+                                <el-popover
+                                    placement="right"
+                                    trigger="hover"
+                                    :width="420"
+                                    @before-enter="loadWebsiteDomains(row.websiteId)"
+                                >
+                                    <template #reference>
+                                        <el-button link icon="Promotion" class="ml-2.5"></el-button>
+                                    </template>
+                                    <table v-if="getWebsiteBaseUrls(row).length > 0">
+                                        <tbody>
+                                            <tr v-for="url in getWebsiteBaseUrls(row)" :key="url">
+                                                <td>
+                                                    <el-button type="primary" link @click="openWebsiteUrl(url, row)">
+                                                        {{ url }}
+                                                    </el-button>
+                                                </td>
+                                                <td>
+                                                    <CopyButton :content="url" />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <el-empty v-else :image-size="48" :description="$t('commons.msg.noneData')" />
+                                </el-popover>
+                            </div>
+                            <el-button v-else link type="primary" @click="openBindWebsite(row)">
+                                {{ $t('commons.button.bind') }}
+                            </el-button>
+                        </template>
+                    </el-table-column>
                     <el-table-column :label="$t('website.remark')" prop="remark" min-width="150">
                         <template #default="{ row }">
                             <fu-read-write-switch>
@@ -153,8 +190,10 @@
         <AddDialog ref="addRef" @search="search" @task="openTaskLog" />
         <TaskLog ref="taskLogRef" @close="search" />
         <DeleteDialog ref="deleteRef" @close="search" />
+        <AppResources ref="checkRef" @close="search" />
         <ConfigDrawer ref="configRef" @updated="search" />
         <OverviewDrawer ref="overviewRef" />
+        <BindWebsiteDialog ref="bindWebsiteRef" @success="search" />
         <AppUpgrade ref="upgradeRef" @close="search" />
         <ComposeLogs ref="composeLogRef" />
         <AgentTerminalDialog ref="dialogTerminalRef" />
@@ -165,19 +204,21 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { pageAgents, resetAgentToken, updateAgentRemark } from '@/api/modules/ai';
-import { installedOp, searchApp, searchAppInstalled } from '@/api/modules/app';
+import { deleteAgentCheck, pageAgents, resetAgentToken, updateAgentRemark } from '@/api/modules/ai';
+import { checkAppInstalled, installedOp, searchApp, searchAppInstalled } from '@/api/modules/app';
 import { AI } from '@/api/interface/ai';
 import { App } from '@/api/interface/app';
+import { Website } from '@/api/interface/website';
 import { SearchWithPage } from '@/api/interface';
 import { dateFormat, newUUID } from '@/utils/util';
 import { MsgSuccess } from '@/utils/message';
 
-import RouterMenu from '@/views/ai/agents/index.vue';
 import AddDialog from '@/views/ai/agents/agent/add/index.vue';
 import DeleteDialog from '@/views/ai/agents/agent/delete/index.vue';
+import AppResources from '@/views/app-store/installed/check/index.vue';
 import ConfigDrawer from '@/views/ai/agents/agent/config/index.vue';
 import OverviewDrawer from '@/views/ai/agents/agent/components/overview.vue';
+import BindWebsiteDialog from '@/views/ai/agents/agent/website/index.vue';
 import AppUpgrade from '@/views/app-store/installed/upgrade/index.vue';
 import TaskLog from '@/components/log/task/index.vue';
 import ComposeLogs from '@/components/log/compose/index.vue';
@@ -187,6 +228,7 @@ import PortJumpDialog from '@/components/port-jump/index.vue';
 import DockerStatus from '@/views/container/docker-status/index.vue';
 import { getAgentProviderDisplayName, getOpenclawAccessScheme } from '@/utils/agent';
 import { routerToFileWithPath } from '@/utils/router';
+import { listDomains } from '@/api/modules/website';
 import NoApp from '@/views/app-store/apps/no-app/index.vue';
 import openclawIcon from '@/assets/images/ai-agent-openclaw.svg';
 import copawIcon from '@/assets/images/ai-agent-copaw.svg';
@@ -196,8 +238,10 @@ const loading = ref(false);
 const addRef = ref();
 const taskLogRef = ref();
 const deleteRef = ref();
+const checkRef = ref();
 const configRef = ref();
 const overviewRef = ref();
+const bindWebsiteRef = ref();
 const upgradeRef = ref();
 const composeLogRef = ref();
 const dialogTerminalRef = ref();
@@ -208,6 +252,16 @@ const isActive = ref(false);
 const isExist = ref(false);
 const noApp = ref(false);
 const searchName = ref('');
+const defaultHttpsPort = ref(443);
+const openrestyPortLoaded = ref(false);
+const websiteDomainsMap = ref<Record<number, Website.Domain[]>>({});
+
+const headerButtons = [
+    {
+        label: i18n.global.t('aiTools.agents.agent'),
+        path: '/ai/agents/agent',
+    },
+];
 
 const buttons = [
     {
@@ -284,9 +338,10 @@ const search = async () => {
             pageSize: paginationConfig.pageSize,
             info: searchName.value || '',
         };
-        const [res] = await Promise.all([pageAgents(req), checkNoApp()]);
+        const [res] = await Promise.all([pageAgents(req), checkNoApp(), loadOpenrestyHttpsPort()]);
         items.value = res.data.items || [];
         paginationConfig.total = res.data.total || 0;
+        await preloadWebsiteDomains(items.value);
     } finally {
         loading.value = false;
     }
@@ -390,7 +445,16 @@ const jumpWebUI = (row: AI.AgentItem) => {
     }
 };
 
-const onDelete = (row: AI.AgentItem) => {
+const onDelete = async (row: AI.AgentItem) => {
+    const res = await deleteAgentCheck({ agentId: row.id });
+    if ((res.data || []).length > 0) {
+        checkRef.value?.acceptParams({
+            items: res.data,
+            installID: row.appInstallId,
+            key: row.agentType,
+        });
+        return;
+    }
     deleteRef.value?.acceptParams(row.id, row.name);
 };
 
@@ -421,6 +485,109 @@ const openConfig = (row: AI.AgentItem) => {
 
 const openOverview = (row: AI.AgentItem) => {
     overviewRef.value?.acceptParams(row);
+};
+
+const openBindWebsite = (row: AI.AgentItem) => {
+    bindWebsiteRef.value?.acceptParams(row);
+};
+
+const loadOpenrestyHttpsPort = async () => {
+    if (openrestyPortLoaded.value) {
+        return;
+    }
+    openrestyPortLoaded.value = true;
+    try {
+        const res = await checkAppInstalled('openresty', '');
+        defaultHttpsPort.value = res.data.httpsPort || 443;
+    } catch {
+        defaultHttpsPort.value = 443;
+    }
+};
+
+const sortWebsiteDomains = (domains: Website.Domain[]) => {
+    return [...domains].sort((a, b) => a.id - b.id);
+};
+
+const loadWebsiteDomains = async (websiteId: number) => {
+    if (!websiteId) {
+        return [];
+    }
+    if (websiteDomainsMap.value[websiteId]) {
+        return websiteDomainsMap.value[websiteId];
+    }
+    const res = await listDomains(websiteId);
+    const domains = sortWebsiteDomains(res.data || []);
+    websiteDomainsMap.value = {
+        ...websiteDomainsMap.value,
+        [websiteId]: domains,
+    };
+    return domains;
+};
+
+const preloadWebsiteDomains = async (rows: AI.AgentItem[]) => {
+    const websiteIDs = [...new Set(rows.map((row) => row.websiteId).filter((websiteId) => websiteId > 0))];
+    await Promise.allSettled(websiteIDs.map((websiteId) => loadWebsiteDomains(websiteId)));
+};
+
+const formatWebsiteHost = (domain: string) => {
+    const host = String(domain || '')
+        .trim()
+        .replace(/^\[|\]$/g, '');
+    return host.includes(':') ? `[${host}]` : host;
+};
+
+const buildWebsiteBaseUrl = (domain: Website.Domain, row: AI.AgentItem) => {
+    const protocol = (row.websiteProtocol || 'http').toLowerCase();
+    let url = `${protocol}://${formatWebsiteHost(domain.domain)}`;
+    if (protocol === 'http') {
+        if (domain.port && domain.port !== 80) {
+            url = `${url}:${domain.port}`;
+        }
+        return url;
+    }
+    let port = domain.port;
+    if (!domain.ssl) {
+        port = defaultHttpsPort.value || 443;
+    }
+    if (port && port !== 443) {
+        url = `${url}:${port}`;
+    }
+    return url;
+};
+
+const appendWebsiteAgentToken = (url: string, row: AI.AgentItem) => {
+    if (row.agentType !== 'copaw' && row.token) {
+        const target = new URL(url);
+        target.hash = `token=${row.token}`;
+        return target.toString();
+    }
+    return url;
+};
+
+const getWebsiteBaseUrls = (row: AI.AgentItem) => {
+    const domains = websiteDomainsMap.value[row.websiteId] || [];
+    return domains.map((domain) => buildWebsiteBaseUrl(domain, row));
+};
+
+const getWebsiteDisplayName = (row: AI.AgentItem) => {
+    const domains = websiteDomainsMap.value[row.websiteId] || [];
+    return domains[0]?.domain || row.websitePrimaryDomain || '-';
+};
+
+const openUrl = (url: string) => {
+    window.open(url);
+};
+
+const openWebsiteUrl = (url: string, row: AI.AgentItem) => {
+    openUrl(appendWebsiteAgentToken(url, row));
+};
+
+const openWebsite = async (row: AI.AgentItem) => {
+    const domains = await loadWebsiteDomains(row.websiteId);
+    if (domains.length === 0) {
+        return;
+    }
+    openWebsiteUrl(buildWebsiteBaseUrl(domains[0], row), row);
 };
 
 const openUpgrade = async (row: AI.AgentItem) => {
@@ -456,5 +623,11 @@ onMounted(async () => {
     height: 16px;
     flex: 0 0 16px;
     object-fit: contain;
+}
+
+.website-link-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
 }
 </style>

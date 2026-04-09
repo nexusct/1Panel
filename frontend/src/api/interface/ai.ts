@@ -278,6 +278,9 @@ export namespace AI {
         status: string;
         message: string;
         appInstallId: number;
+        websiteId: number;
+        websitePrimaryDomain: string;
+        websiteProtocol: string;
         accountId: number;
         appVersion: string;
         containerName: string;
@@ -304,13 +307,29 @@ export namespace AI {
         remark: string;
     }
 
+    export interface AgentWebsiteBindReq {
+        agentId: number;
+        websiteId: number;
+    }
+
     export interface AgentModelConfigUpdateReq {
         agentId: number;
         accountId: number;
         model: string;
+        fallbacks: string[];
+    }
+
+    export interface AgentModelConfig {
+        accountId: number;
+        model: string;
+        fallbacks: string[];
     }
 
     export interface AgentOverviewReq {
+        agentId: number;
+    }
+
+    export interface AgentIDReq {
         agentId: number;
     }
 
@@ -333,6 +352,13 @@ export namespace AI {
     export interface AgentRoleDeleteReq {
         agentId: number;
         id: string;
+    }
+
+    export interface AgentRoleBindReq {
+        agentId: number;
+        id: string;
+        channel: string;
+        accountId: string;
     }
 
     export interface AgentConfiguredAgentsReq {
@@ -783,7 +809,7 @@ export namespace AI {
 
     export interface AgentSkillSearchReq {
         agentId: number;
-        source: 'clawhub' | 'skillhub';
+        source: 'clawhub-global' | 'clawhub-cn' | 'skillhub';
         keyword: string;
     }
 
@@ -813,7 +839,7 @@ export namespace AI {
 
     export interface AgentSkillInstallReq {
         agentId: number;
-        source: 'clawhub' | 'skillhub';
+        source: 'clawhub-global' | 'clawhub-cn' | 'skillhub';
         slug: string;
         taskID: string;
     }

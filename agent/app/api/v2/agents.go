@@ -52,6 +52,27 @@ func (b *BaseApi) PageAgents(c *gin.Context) {
 }
 
 // @Tags AI
+// @Summary Delete check Agent
+// @Accept json
+// @Param request body dto.AgentIDReq true "request"
+// @Success 200 {array} dto.AppResource
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /ai/agents/delete/check [post]
+func (b *BaseApi) DeleteCheckAgent(c *gin.Context) {
+	var req dto.AgentIDReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	checkData, err := agentService.DeleteCheck(req)
+	if err != nil {
+		helper.BadRequest(c, err)
+		return
+	}
+	helper.SuccessWithData(c, checkData)
+}
+
+// @Tags AI
 // @Summary Delete Agent
 // @Accept json
 // @Param request body dto.AgentDeleteReq true "request"
@@ -109,6 +130,47 @@ func (b *BaseApi) UpdateAgentRemark(c *gin.Context) {
 		return
 	}
 	helper.Success(c)
+}
+
+// @Tags AI
+// @Summary Bind Agent website
+// @Accept json
+// @Param request body dto.AgentWebsiteBindReq true "request"
+// @Success 200
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /ai/agents/website/bind [post]
+func (b *BaseApi) BindAgentWebsite(c *gin.Context) {
+	var req dto.AgentWebsiteBindReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	if err := agentService.BindWebsite(req); err != nil {
+		helper.BadRequest(c, err)
+		return
+	}
+	helper.Success(c)
+}
+
+// @Tags AI
+// @Summary Get Agent model config
+// @Accept json
+// @Param request body dto.AgentIDReq true "request"
+// @Success 200 {object} dto.AgentModelConfig
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /ai/agents/model/get [post]
+func (b *BaseApi) GetAgentModelConfig(c *gin.Context) {
+	var req dto.AgentIDReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	res, err := agentService.GetModelConfig(req)
+	if err != nil {
+		helper.BadRequest(c, err)
+		return
+	}
+	helper.SuccessWithData(c, res)
 }
 
 // @Tags AI
@@ -387,6 +449,46 @@ func (b *BaseApi) DeleteAgentRole(c *gin.Context) {
 		return
 	}
 	if err := agentService.DeleteRole(req); err != nil {
+		helper.BadRequest(c, err)
+		return
+	}
+	helper.Success(c)
+}
+
+// @Tags AI
+// @Summary Bind Agent role channel
+// @Accept json
+// @Param request body dto.AgentRoleBindReq true "request"
+// @Success 200
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /ai/agents/agent/bind [post]
+func (b *BaseApi) BindAgentRole(c *gin.Context) {
+	var req dto.AgentRoleBindReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	if err := agentService.BindRole(req); err != nil {
+		helper.BadRequest(c, err)
+		return
+	}
+	helper.Success(c)
+}
+
+// @Tags AI
+// @Summary Unbind Agent role channel
+// @Accept json
+// @Param request body dto.AgentRoleBindReq true "request"
+// @Success 200
+// @Security ApiKeyAuth
+// @Security Timestamp
+// @Router /ai/agents/agent/unbind [post]
+func (b *BaseApi) UnbindAgentRole(c *gin.Context) {
+	var req dto.AgentRoleBindReq
+	if err := helper.CheckBindAndValidate(&req, c); err != nil {
+		return
+	}
+	if err := agentService.UnbindRole(req); err != nil {
 		helper.BadRequest(c, err)
 		return
 	}

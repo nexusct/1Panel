@@ -389,14 +389,10 @@
 import { batchCheckFiles, createFile, getFileContent, getFilesTree, saveFileContent } from '@/api/modules/files';
 import i18n from '@/lang';
 import { MsgError, MsgSuccess, MsgWarning } from '@/utils/message';
+import { setupMonacoEnvironment } from '@/utils/monaco';
 import * as monaco from 'monaco-editor';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { Languages } from '@/global/mimetype';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 
 import type { TabPaneName } from 'element-plus';
 import { ElMessageBox, ElTreeV2 } from 'element-plus';
@@ -412,30 +408,14 @@ import noUpdateImage from '@/assets/images/no_update_app.svg';
 
 let editor: monaco.editor.IStandaloneCodeEditor | undefined;
 
-self.MonacoEnvironment = {
-    getWorker(workerId, label) {
-        if (label === 'json') {
-            return new jsonWorker();
-        }
-        if (label === 'css' || label === 'scss' || label === 'less') {
-            return new cssWorker();
-        }
-        if (label === 'html' || label === 'handlebars' || label === 'razor') {
-            return new htmlWorker();
-        }
-        if (['typescript', 'javascript'].includes(label)) {
-            return new tsWorker();
-        }
-        return new EditorWorker();
-    },
-};
-
+setupMonacoEnvironment();
 interface EditProps {
     language: string;
     content: string;
     path: string;
     name: string;
     extension: string;
+    initialLine?: number;
 }
 
 interface EditorConfig {
@@ -456,6 +436,49 @@ interface TreeNode {
     name?: string;
     isLeaf?: boolean;
 }
+
+const pendingInitialLine = ref(0);
+let lineHighlightDecorationIds: string[] = [];
+
+const clearPendingLineHighlight = () => {
+    if (!editor) {
+        lineHighlightDecorationIds = [];
+        return;
+    }
+    lineHighlightDecorationIds = editor.deltaDecorations(lineHighlightDecorationIds, []);
+};
+
+const revealPendingInitialLine = () => {
+    const line = pendingInitialLine.value;
+    if (!editor || line < 1) {
+        return;
+    }
+    const model = editor.getModel();
+    if (!model) {
+        return;
+    }
+    const targetLine = Math.min(line, model.getLineCount());
+    editor.setSelection({
+        startLineNumber: targetLine,
+        startColumn: 1,
+        endLineNumber: targetLine,
+        endColumn: 1,
+    });
+    editor.setPosition({ lineNumber: targetLine, column: 1 });
+    editor.revealLineInCenter(targetLine);
+    lineHighlightDecorationIds = editor.deltaDecorations(lineHighlightDecorationIds, [
+        {
+            range: new monaco.Range(targetLine, 1, targetLine, model.getLineMaxColumn(targetLine)),
+            options: {
+                isWholeLine: true,
+                className: 'ai-search-target-line',
+                linesDecorationsClassName: 'ai-search-target-line-gutter',
+            },
+        },
+    ]);
+    editor.focus();
+    pendingInitialLine.value = 0;
+};
 
 const open = ref(false);
 const loading = ref(false);
@@ -730,6 +753,7 @@ const handleClose = () => {
         fileTabs.value = [];
         isEdit.value = false;
         if (editor) {
+            clearPendingLineHighlight();
             editor.dispose();
         }
         em('close', open.value);
@@ -883,6 +907,8 @@ const initEditor = () => {
                 isEdit.value = true;
             }
         });
+
+        revealPendingInitialLine();
     });
 };
 
@@ -912,6 +938,7 @@ const saveContent = async () => {
 };
 
 const acceptParams = async (props: EditProps) => {
+    pendingInitialLine.value = props.initialLine && props.initialLine > 0 ? Math.floor(props.initialLine) : 0;
     form.value.content = props.content;
     oldFileContent.value = props.content;
     form.value.path = props.path;
@@ -945,6 +972,17 @@ const acceptParams = async (props: EditProps) => {
     config.minimap = localStorage.getItem(minimapKey) !== null ? localStorage.getItem(minimapKey) === 'true' : true;
     open.value = true;
     saveTabsToStorage();
+    nextTick(() => {
+        if (editor) {
+            editor.setValue(form.value.content);
+            const model = editor.getModel();
+            if (model) {
+                monaco.editor.setModelLanguage(model, config.language);
+            }
+            isEdit.value = false;
+            revealPendingInitialLine();
+        }
+    });
 };
 
 const getIconName = (extension: string) => getIcon(extension);
@@ -1426,5 +1464,13 @@ defineExpose({ acceptParams });
 
 :deep(.el-input__inner:focus) {
     outline: none !important;
+}
+
+:deep(.monaco-editor .ai-search-target-line) {
+    background-color: rgba(64, 158, 255, 0.14);
+}
+
+:deep(.monaco-editor .ai-search-target-line-gutter) {
+    border-left: 3px solid var(--el-color-primary);
 }
 </style>

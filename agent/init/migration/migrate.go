@@ -78,6 +78,9 @@ func InitAgentDB() {
 		migrations.UpdateAgentQuickJumpTitle,
 		migrations.FixOpenclaw20260323HTTPPort,
 		migrations.AddAgentRemarkColumn,
+		migrations.AddAgentWebsiteBinding,
+		migrations.AddFileManageAISettings,
+		migrations.AddFileShareTable,
 	})
 	if err := m.Migrate(); err != nil {
 		global.LOG.Error(err)

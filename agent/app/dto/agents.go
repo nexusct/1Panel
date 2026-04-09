@@ -28,31 +28,34 @@ type AgentCreateReq struct {
 }
 
 type AgentItem struct {
-	ID            uint      `json:"id"`
-	Name          string    `json:"name"`
-	Remark        string    `json:"remark"`
-	AgentType     string    `json:"agentType"`
-	Provider      string    `json:"provider"`
-	ProviderName  string    `json:"providerName"`
-	Model         string    `json:"model"`
-	APIType       string    `json:"apiType"`
-	MaxTokens     int       `json:"maxTokens"`
-	ContextWindow int       `json:"contextWindow"`
-	BaseURL       string    `json:"baseUrl"`
-	APIKey        string    `json:"apiKey"`
-	Token         string    `json:"token"`
-	Status        string    `json:"status"`
-	Message       string    `json:"message"`
-	AppInstallID  uint      `json:"appInstallId"`
-	AccountID     uint      `json:"accountId"`
-	AppVersion    string    `json:"appVersion"`
-	Container     string    `json:"containerName"`
-	WebUIPort     int       `json:"webUIPort"`
-	BridgePort    int       `json:"bridgePort"`
-	Path          string    `json:"path"`
-	ConfigPath    string    `json:"configPath"`
-	Upgradable    bool      `json:"upgradable"`
-	CreatedAt     time.Time `json:"createdAt"`
+	ID                   uint      `json:"id"`
+	Name                 string    `json:"name"`
+	Remark               string    `json:"remark"`
+	AgentType            string    `json:"agentType"`
+	Provider             string    `json:"provider"`
+	ProviderName         string    `json:"providerName"`
+	Model                string    `json:"model"`
+	APIType              string    `json:"apiType"`
+	MaxTokens            int       `json:"maxTokens"`
+	ContextWindow        int       `json:"contextWindow"`
+	BaseURL              string    `json:"baseUrl"`
+	APIKey               string    `json:"apiKey"`
+	Token                string    `json:"token"`
+	Status               string    `json:"status"`
+	Message              string    `json:"message"`
+	AppInstallID         uint      `json:"appInstallId"`
+	WebsiteID            uint      `json:"websiteId"`
+	WebsitePrimaryDomain string    `json:"websitePrimaryDomain"`
+	WebsiteProtocol      string    `json:"websiteProtocol"`
+	AccountID            uint      `json:"accountId"`
+	AppVersion           string    `json:"appVersion"`
+	Container            string    `json:"containerName"`
+	WebUIPort            int       `json:"webUIPort"`
+	BridgePort           int       `json:"bridgePort"`
+	Path                 string    `json:"path"`
+	ConfigPath           string    `json:"configPath"`
+	Upgradable           bool      `json:"upgradable"`
+	CreatedAt            time.Time `json:"createdAt"`
 }
 
 type AgentDeleteReq struct {
@@ -70,10 +73,22 @@ type AgentRemarkUpdateReq struct {
 	Remark string `json:"remark"`
 }
 
+type AgentWebsiteBindReq struct {
+	AgentID   uint `json:"agentId" validate:"required"`
+	WebsiteID uint `json:"websiteId" validate:"required"`
+}
+
 type AgentModelConfigUpdateReq struct {
-	AgentID   uint   `json:"agentId" validate:"required"`
-	AccountID uint   `json:"accountId" validate:"required"`
-	Model     string `json:"model" validate:"required"`
+	AgentID   uint     `json:"agentId" validate:"required"`
+	AccountID uint     `json:"accountId" validate:"required"`
+	Model     string   `json:"model" validate:"required"`
+	Fallbacks []string `json:"fallbacks"`
+}
+
+type AgentModelConfig struct {
+	AccountID uint     `json:"accountId"`
+	Model     string   `json:"model"`
+	Fallbacks []string `json:"fallbacks"`
 }
 
 type AgentOverviewReq struct {
@@ -107,6 +122,13 @@ type AgentRoleCreateResp struct {
 type AgentRoleDeleteReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
 	ID      string `json:"id" validate:"required"`
+}
+
+type AgentRoleBindReq struct {
+	AgentID   uint   `json:"agentId" validate:"required"`
+	ID        string `json:"id" validate:"required"`
+	Channel   string `json:"channel" validate:"required"`
+	AccountID string `json:"accountId"`
 }
 
 type AgentConfiguredAgentsReq struct {
@@ -458,6 +480,10 @@ type AgentChannelBotBase struct {
 	IsDefault bool   `json:"isDefault"`
 }
 
+func (b AgentChannelBotBase) IsEnabled() bool {
+	return b.Enabled
+}
+
 type AgentFeishuBot struct {
 	AgentChannelBotBase
 	AppID     string   `json:"appId"`
@@ -530,7 +556,7 @@ type AgentConfigFile struct {
 
 type AgentSkillSearchReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
-	Source  string `json:"source" validate:"required,oneof=clawhub skillhub"`
+	Source  string `json:"source" validate:"required,oneof=clawhub-global clawhub-cn skillhub"`
 	Keyword string `json:"keyword" validate:"required"`
 }
 
@@ -560,7 +586,7 @@ type AgentSkillUpdateReq struct {
 
 type AgentSkillInstallReq struct {
 	AgentID uint   `json:"agentId" validate:"required"`
-	Source  string `json:"source" validate:"required,oneof=clawhub skillhub"`
+	Source  string `json:"source" validate:"required,oneof=clawhub-global clawhub-cn skillhub"`
 	Slug    string `json:"slug" validate:"required"`
 	TaskID  string `json:"taskID" validate:"required"`
 }
