@@ -45,7 +45,7 @@
 Jalankan skrip di bawah dan ikuti arahan untuk memasang 1Panel:
 
 ```bash
-curl -sSL https://resource.1panel.pro/quick_start.sh -o quick_start.sh && bash quick_start.sh
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 ```
 
 Sila rujuk [dokumentasi](https://docs.1panel.pro/quick_start/) untuk maklumat lanjut.

@@ -75,6 +75,45 @@ bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 After installation, open `http://<your-server-ip>:<port>/<security-path>` in your browser.  
 Run `1pctl user-info` via SSH if you need to retrieve your access credentials.
 
+## Install on Ubuntu Server
+
+### Prerequisites
+
+- Ubuntu Server 20.04 / 22.04 / 24.04 LTS (64-bit)
+- Minimum 1 GB RAM, 10 GB free disk space
+- `curl` installed (`sudo apt-get install -y curl`)
+- `sudo` / root access
+- Ports 80 and 443 open in your firewall (and the panel port, default 8090)
+
+### Install the latest version
+
+```bash
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
+```
+
+Follow the on-screen prompts to set your admin credentials and panel port.
+
+### Install a specific version (pinned)
+
+Set the `VERSION` environment variable before running the script to pin to a particular release.  
+Replace `<version>` with the tag you want (e.g. `v2.1.10`); find all releases on the [GitHub Releases page](https://github.com/1Panel-dev/1Panel/releases):
+
+```bash
+VERSION=<version> bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
+```
+
+### After installation
+
+Once the script completes, retrieve your access URL and credentials:
+
+```bash
+sudo 1pctl user-info
+```
+
+Then open `http://<your-server-ip>:<port>/<security-path>` in your browser to log in.
+
+For full documentation see [1panel.pro/docs](https://1panel.pro/docs).
+
 ## Screenshot
 
 ![1Panel UI](https://resource.1panel.pro/img/overview_en_v2.png)

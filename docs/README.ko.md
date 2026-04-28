@@ -45,7 +45,7 @@
 아래 스크립트를 실행하고 프롬프트에 따라 1Panel을 설치하세요:
 
 ```bash
-curl -sSL https://resource.1panel.pro/quick_start.sh -o quick_start.sh && bash quick_start.sh
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 ```
 
 자세한 내용은 [문서](https://docs.1panel.pro/quick_start/)를 참조하세요.

@@ -47,7 +47,7 @@
 Aşağıdaki komutu çalıştırın ve 1Panel’i kurmak için yönergeleri takip edin:
 
 ```sh
-curl -sSL https://resource.1panel.pro/quick_start.sh -o quick_start.sh && bash quick_start.sh
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 ```
 
 Daha fazla detay için [dokümantasyonumuza](https://docs.1panel.pro/quick_start/) göz atın.
