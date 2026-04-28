@@ -45,7 +45,7 @@
 ワンクリックで 1Panel をインストールするには、次のコマンドを実行します:
 
 ```sh
-curl -sSL https://resource.1panel.pro/quick_start.sh -o quick_start.sh && bash quick_start.sh
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 ```
 
 ## UI ディスプレイ

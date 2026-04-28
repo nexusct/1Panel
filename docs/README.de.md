@@ -45,7 +45,7 @@
 Führen Sie das folgende Skript aus und befolgen Sie die Anweisungen, um 1Panel zu installieren:
 
 ```bash
-curl -sSL https://resource.1panel.pro/quick_start.sh -o quick_start.sh && bash quick_start.sh
+bash -c "$(curl -sSL https://resource.1panel.pro/v2/quick_start.sh)"
 ```
 
 Bitte verweisen Sie auf unsere [Dokumentation](https://docs.1panel.pro/quick_start/) für weitere Informationen.
